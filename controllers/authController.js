@@ -1,17 +1,21 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const User = require("../models/UserModel.js");
-const filterObj = require("../utils/fillterObject");
 const otpGenerator = require("otp-generator");
-const mailServices = require("../services/mailer");
-const otp = require("../templates/Mail/otp");
-const resetPassword = require("../templates/Mail/resetPassword.js");
+const mongoose = require("mongoose");
 const { promisify } = require("util");
 
+const filterObj = require("../utils/fillterObject");
+const mailServices = require("../services/mailer");
+const User = require("../models/UserModel.js");
+const resetPassword = require("../templates/Mail/resetPassword.js");
+const otp = require("../templates/Mail/otp");
+
 const EXPIRED_TIME = 6;
+
 const options = {
   expiresIn: "1h", // token sẽ hết hạn sau 1 giờ
 };
+
 const signToken = (userId) =>
   jwt.sign({ userId }, process.env.JWT_SECRET, options);
 
@@ -115,6 +119,11 @@ exports.register = async (req, res, next) => {
 // Send OTP
 exports.sendOTP = async (req, res, next) => {
   const { userId } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: ["Invalid userId format"] });
+  }
+
   const new_otp = otpGenerator.generate(6, {
     upperCaseAlphabets: false,
     specialChars: false,
@@ -235,7 +244,7 @@ exports.login = async (req, res, next) => {
     message: "Logged in successfully",
     data: {
       token: token,
-      user_id: userDoc._id,
+      userId: userDoc._id,
     },
   });
 };
@@ -320,4 +329,39 @@ exports.resetPassword = async (req, res, next) => {
       message: errors,
     });
   }
+};
+
+// Change Password
+exports.updatePassword = async (req, res, next) => {
+  const { userId } = req.user;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: ["Invalid userId format"] });
+  }
+
+  const user = await User.findById(userId).select("+password");
+
+  if (!user) {
+    return res.status(404).json({
+      status: "error",
+      message: ["User does not exist"],
+    });
+  }
+
+  if (!(await user.isCorrectPassword(currentPassword, user.password))) {
+    return res.status(400).json({
+      status: "error",
+      message: ["Current password is incorrect"],
+    });
+  }
+
+  user.password = newPassword;
+
+  await user.save();
+
+  return res.status(200).json({
+    status: "success",
+    message: "Password updated successfully",
+  });
 };
