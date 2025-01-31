@@ -17,6 +17,6 @@ app.use(rateLimiter);
 
 app.use(errorHandler);
 
-app.use("/v1/movie", require("./routes/index"));
+app.use("/v1/MovieApp", require("./routes/index"));
 
 module.exports = app;

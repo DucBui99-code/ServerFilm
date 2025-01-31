@@ -1,0 +1,30 @@
+const mongoose = require("mongoose");
+
+const movieSchema = new mongoose.Schema({
+  tmdb: {
+    type: {
+      type: String, // "tv" hoặc "movie"
+      required: true,
+    },
+    id: { type: String, required: true },
+    season: { type: Number },
+    vote_average: { type: Number },
+    vote_count: { type: Number },
+  },
+  imdb: {
+    id: { type: String },
+  },
+  modified: {
+    time: { type: Date, default: Date.now },
+  },
+  name: { type: String, required: true },
+  slug: { type: String, required: true },
+  origin_name: { type: String, required: true },
+  thumb_url: { type: String, required: true },
+  poster_url: { type: String, required: true },
+  year: { type: Number, required: true },
+});
+
+const Movie = mongoose.model("Movie", movieSchema);
+
+module.exports = Movie;
