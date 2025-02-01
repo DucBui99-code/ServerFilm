@@ -1,4 +1,7 @@
 const Movie = require("../models/MovieModel");
+const DetailMovie = require("../models/DetailMovieModel");
+
+const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
 
 exports.getAllMovies = async (req, res) => {
   try {
@@ -13,13 +16,85 @@ exports.getAllMovies = async (req, res) => {
     const movies = await Movie.find().skip(skip).limit(limit);
 
     return res.json({
+      status: "success",
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalMovies / limit),
         totalMovies,
       },
       items: movies,
-      pathImage: "https://img.ophim.live/uploads/movies/",
+      pathImage: PATH_IMAGE,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.searchMovies = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || typeof q !== "string" || q.trim().length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Invalid Query", items: [], status: "error" });
+    }
+
+    const safeQuery = q.replace(
+      /[^a-zA-Z0-9\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/g,
+      ""
+    );
+
+    if (safeQuery.length > 50) {
+      return res
+        .status(400)
+        .json({ message: "Query is to long", items: [], status: "error" });
+    }
+
+    const movies = await Movie.find({
+      $or: [
+        { name: { $regex: q, $options: "i" } },
+        { origin_name: { $regex: q, $options: "i" } },
+      ],
+    });
+
+    return res.json({
+      status: "success",
+      items: movies,
+      pathImage: PATH_IMAGE,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getMovieBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!slug || typeof slug !== "string" || slug.trim().length === 0) {
+      return res.status(400).json({
+        status: "error",
+        message: ["Invalid Slug"],
+      });
+    }
+
+    const movie = await DetailMovie.findOne({ slug });
+
+    if (!movie) {
+      return res.status(404).json({
+        status: "error",
+        message: ["Movie not found"],
+      });
+    }
+
+    const movieData = movie.toObject();
+    delete movieData.episodes;
+
+    return res.status(200).json({
+      status: "success",
+      movie: movieData,
+      episodes: movie.episodes,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
