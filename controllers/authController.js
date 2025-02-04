@@ -90,14 +90,14 @@ exports.register = async (req, res, next) => {
       });
 
       return res.status(200).json({
-        status: "success",
+        status: true,
         message: "Register successfully",
         userId: userDoc._id,
       });
     } else {
       const new_user = await User.create(filteredBody);
       return res.status(200).json({
-        status: "success",
+        status: true,
         message: "Register successfully",
         userId: new_user._id,
       });
@@ -105,8 +105,6 @@ exports.register = async (req, res, next) => {
   } catch (error) {
     let errors = [];
     for (const property in error.errors) {
-      console.log(property);
-
       errors.push(`${error.errors[property]}`);
     }
     return res.status(404).json({
@@ -151,7 +149,7 @@ exports.sendOTP = async (req, res, next) => {
   });
 
   return res.status(200).json({
-    status: "success",
+    status: true,
     message: "Send OTP successfully",
     timeExpired: EXPIRED_TIME,
   });
@@ -196,7 +194,7 @@ exports.verifyOTP = async (req, res, next) => {
   const token = signToken(user._id);
 
   return res.status(200).json({
-    status: "success",
+    status: true,
     message: "Logged in successfully",
     data: {
       id: user._id,
@@ -240,7 +238,7 @@ exports.login = async (req, res, next) => {
   const token = signToken(userDoc._id);
 
   return res.status(200).json({
-    status: "success",
+    status: true,
     message: "Logged in successfully",
     data: {
       token: token,
@@ -277,7 +275,7 @@ exports.forgotPassword = async (req, res, next) => {
     await user.save({ new: true, validateModifiedOnly: true });
 
     return res.status(200).json({
-      status: "success",
+      status: true,
       message: "Send reset password successfully",
     });
   } catch (err) {
@@ -316,7 +314,7 @@ exports.resetPassword = async (req, res, next) => {
 
     await user.save();
     return res.status(200).json({
-      status: "success",
+      status: true,
       message: "Password Rested Successfully",
     });
   } catch (error) {
@@ -361,7 +359,7 @@ exports.updatePassword = async (req, res, next) => {
   await user.save();
 
   return res.status(200).json({
-    status: "success",
+    status: true,
     message: "Password updated successfully",
   });
 };

@@ -16,7 +16,7 @@ exports.getAllMovies = async (req, res) => {
     const movies = await Movie.find().skip(skip).limit(limit);
 
     return res.json({
-      status: "success",
+      status: true,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalMovies / limit),
@@ -59,7 +59,7 @@ exports.searchMovies = async (req, res) => {
     });
 
     return res.json({
-      status: "success",
+      status: true,
       items: movies,
       pathImage: PATH_IMAGE,
     });
@@ -83,7 +83,9 @@ exports.getMovieBySlug = async (req, res) => {
 
     if (!movie) {
       return res.status(404).json({
-        status: "error",
+        status: false,
+        movie: null,
+        episodes: [],
         message: ["Movie not found"],
       });
     }
@@ -92,7 +94,7 @@ exports.getMovieBySlug = async (req, res) => {
     delete movieData.episodes;
 
     return res.status(200).json({
-      status: "success",
+      status: true,
       movie: movieData,
       episodes: movie.episodes,
     });

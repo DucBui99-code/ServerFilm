@@ -6,7 +6,6 @@ const movieSchema = new mongoose.Schema({
       type: String, // "tv" hoặc "movie"
       required: true,
     },
-    id: { type: String, required: true },
     season: { type: Number },
     vote_average: { type: Number },
     vote_count: { type: Number },
@@ -15,7 +14,7 @@ const movieSchema = new mongoose.Schema({
     id: { type: String },
   },
   modified: {
-    time: { type: Date, default: Date.now },
+    time: { type: Date },
   },
   name: { type: String, required: true },
   slug: { type: String, required: true },

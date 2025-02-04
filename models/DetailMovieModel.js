@@ -6,19 +6,37 @@ const detailMovieSchema = new mongoose.Schema({
   origin_name: { type: String },
   thumb_url: { type: String },
   poster_url: { type: String },
-  year: { type: String },
-  category: [{ type: String }], // Danh mục thể loại
-  country: [{ type: String }], // Quốc gia
-  description: { type: String }, // Mô tả phim
+  tmdb: {
+    type: { type: String },
+    season: { type: Number },
+    vote_average: { type: Number, default: 0 },
+    vote_count: { type: Number, default: 0 },
+  },
+  year: { type: Number },
+  category: [{ name: { type: String }, slug: { type: String } }], // Danh mục thể loại
+  country: [{ name: { type: String }, slug: { type: String } }], // Quốc gia
   director: [{ type: String }], // Đạo diễn
   actor: [{ type: String }], // Diễn viên
   status: { type: String }, // Trạng thái (Full, Đang chiếu,...)
-  type: { type: String }, // Loại (Phim bộ, Phim lẻ,...)
-  total_episodes: { type: String }, // Tổng số tập
+  type: { type: String },
+  content: { type: String }, // Loại (Phim bộ, Phim lẻ,...)
+  episode_total: { type: String }, // Tổng số tập
+  episode_current: { type: String }, // Số tập hiện tại
+  quality: { type: String }, // Chất lượng phim
+  lang: { type: String }, // Ngôn ngữ phim
+  time: { type: String }, // Thời lượng phim,
+  view: { type: Number, default: 0 }, // Số lượt xem
+  isCopyRight: { type: Boolean }, // Bản quyền
+  isCenima: { type: Boolean }, // Phim chiếu rạp
+  isMono: { type: Boolean }, // Phim độc quyền
+  created: {
+    time: { type: Date, default: Date.now },
+  },
+  showtimes: { type: String }, // Lịch chiếu
   episodes: [
     {
       server_name: { type: String, required: true }, // Server phát phim
-      episodes: [
+      server_data: [
         {
           name: { type: String, required: true }, // Tên tập phim
           slug: { type: String, required: true }, // Slug tập phim
@@ -30,7 +48,7 @@ const detailMovieSchema = new mongoose.Schema({
     },
   ],
   modified: {
-    time: { type: Date, default: Date.now },
+    time: { type: Date },
   },
 });
 
