@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const otpGenerator = require("otp-generator");
 const mongoose = require("mongoose");
-const { promisify } = require("util");
 
 const filterObj = require("../utils/fillterObject");
 const mailServices = require("../services/mailer");
@@ -10,106 +9,99 @@ const User = require("../models/UserModel.js");
 const resetPassword = require("../templates/Mail/resetPassword.js");
 const otp = require("../templates/Mail/otp");
 
-const EXPIRED_TIME = 6;
+const EXPIRED_TIME = 1;
 
 const options = {
-  expiresIn: "1h", // token sẽ hết hạn sau 1 giờ
+  expiresIn: "10m", // token sẽ hết hạn sau 1 giờ
 };
 
 const signToken = (userId) =>
   jwt.sign({ userId }, process.env.JWT_SECRET, options);
 
-exports.protect = async (req, res, next) => {
-  let token;
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    token = req.headers.authorization.split(" ")[1];
-  } else {
-    return res.status(401).json({
-      status: "error",
-      message: "You are not logged in! Please log in to access",
-    });
-  }
+// exports.protect = async (req, res, next) => {
+//   let token;
+//   if (
+//     req.headers.authorization &&
+//     req.headers.authorization.startsWith("Bearer")
+//   ) {
+//     token = req.headers.authorization.split(" ")[1];
+//   } else {
+//     return res.status(401).json({
+//        status: false,
+//       message: "You are not logged in! Please log in to access",
+//     });
+//   }
 
-  try {
-    // Verify Token
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+//   try {
+//     // Verify Token
+//     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-    // Check if the user still exists
-    const this_user = await User.findById(decoded.userId);
-    if (!this_user) {
-      return res.status(400).json({
-        status: "error",
-        message: "The user doesn't exist",
-      });
-    }
+//     // Check if the user still exists
+//     const this_user = await User.findById(decoded.userId);
+//     if (!this_user) {
+//       return res.status(400).json({
+//          status: false,
+//         message: "The user doesn't exist",
+//       });
+//     }
 
-    // Set user on request
-    req.user = this_user;
-    next();
-  } catch (err) {
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({
-        status: "error",
-        message: "Token has expired. Please log in again",
-      });
-    } else if (err.name === "JsonWebTokenError") {
-      return res.status(401).json({
-        status: "error",
-        message: "Invalid token. Please log in again",
-      });
-    } else {
-      return res.status(500).json({
-        status: "error",
-        message: "Internal server error. Please contact the administrator.",
-      });
-    }
-  }
-};
+//     // Set user on request
+//     req.user = this_user;
+//     next();
+//   } catch (err) {
+//     if (err.name === "TokenExpiredError") {
+//       return res.status(401).json({
+//          status: false,
+//         message: "Token has expired. Please log in again",
+//       });
+//     } else if (err.name === "JsonWebTokenError") {
+//       return res.status(401).json({
+//          status: false,
+//         message: "Invalid token. Please log in again",
+//       });
+//     } else {
+//       return res.status(500).json({
+//          status: false,
+//         message: "Internal server error. Please contact the administrator.",
+//       });
+//     }
+//   }
+// };
 
 // Register
+
 exports.register = async (req, res, next) => {
   try {
     const { email } = req.body;
-
     const filteredBody = filterObj(req.body, "username", "password", "email");
 
-    const userDoc = await User.findOne({ email: email });
+    let userDoc = await User.findOne({ email });
 
     if (userDoc && userDoc.verified) {
-      return res.status(400).json({
-        status: "error",
+      return res.status(409).json({
+        status: false,
         message: ["Email is already in use"],
       });
-    } else if (userDoc) {
-      await User.findOneAndUpdate({ email: email }, filteredBody, {
-        new: true,
-        runValidators: true,
-      });
+    }
 
-      return res.status(200).json({
-        status: true,
-        message: "Register successfully",
-        userId: userDoc._id,
-      });
+    if (userDoc) {
+      userDoc.set(filteredBody);
+      await userDoc.save();
     } else {
-      const new_user = await User.create(filteredBody);
-      return res.status(200).json({
-        status: true,
-        message: "Register successfully",
-        userId: new_user._id,
-      });
+      userDoc = await User.create(filteredBody);
     }
+
+    return res.status(200).json({
+      status: true,
+      message: "Register successfully",
+      userId: userDoc._id,
+    });
   } catch (error) {
-    let errors = [];
-    for (const property in error.errors) {
-      errors.push(`${error.errors[property]}`);
-    }
-    return res.status(404).json({
-      status: "error",
-      message: errors,
+    console.error("Error in register:", error);
+
+    return res.status(500).json({
+      status: false,
+      message: error.message || "Something went wrong!",
     });
   }
 };
@@ -127,6 +119,7 @@ exports.sendOTP = async (req, res, next) => {
     specialChars: false,
     lowerCaseAlphabets: false,
   });
+
   const otpExpires = Date.now() + EXPIRED_TIME * 60 * 1000;
 
   const user = await User.findByIdAndUpdate(userId, {
@@ -134,7 +127,7 @@ exports.sendOTP = async (req, res, next) => {
   });
   if (!user) {
     return res.status(404).json({
-      status: "error",
+      status: false,
       message: ["User does not exist"],
     });
   }
@@ -165,20 +158,20 @@ exports.verifyOTP = async (req, res, next) => {
 
   if (!user) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["Email is invalid"],
     });
   }
 
   if (new Date(user.otpExpires).getTime() < Date.now()) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["OTP is expired"],
     });
   }
   if (!(await user.correctOTP(otp, user.otp))) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["OTP is incorrect"],
     });
   }
@@ -212,26 +205,29 @@ exports.login = async (req, res, next) => {
 
   if (!email || !password) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["Both email and password are required"],
     });
   }
 
   const userDoc = await User.findOne({ email: email }).select("+password");
 
-  if (
-    !userDoc ||
-    !(await userDoc.isCorrectPassword(password, userDoc.password))
-  ) {
+  if (!userDoc) {
     return res.status(404).json({
-      status: "error",
+      status: false,
+      message: ["Email or Password is incorrect"],
+    });
+  }
+  if (!(await userDoc.isCorrectPassword(password, userDoc.password))) {
+    return res.status(404).json({
+      status: false,
       message: ["Email or Password is incorrect"],
     });
   }
 
   if (!userDoc.verified) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["Account has not been verified"],
     });
   }
@@ -255,7 +251,7 @@ exports.forgotPassword = async (req, res, next) => {
 
   if (!user) {
     return res.status(404).json({
-      status: "error",
+      status: false,
       message: ["There is no user with given email"],
     });
   }
@@ -284,7 +280,7 @@ exports.forgotPassword = async (req, res, next) => {
 
     await user.save({ validateBeforeSave: false });
     return res.status(500).json({
-      status: "error",
+      status: false,
       message: ["There was an error sending the email, Please try again later"],
     });
   }
@@ -304,7 +300,7 @@ exports.resetPassword = async (req, res, next) => {
 
     if (!user) {
       return res.status(404).json({
-        status: "error",
+        status: false,
         message: ["Token is Invalid or Expired"],
       });
     }
@@ -323,7 +319,7 @@ exports.resetPassword = async (req, res, next) => {
       errors.push(`${error.errors[property]}`);
     }
     return res.status(404).json({
-      status: "error",
+      status: false,
       message: errors,
     });
   }
@@ -342,14 +338,14 @@ exports.updatePassword = async (req, res, next) => {
 
   if (!user) {
     return res.status(404).json({
-      status: "error",
+      status: false,
       message: ["User does not exist"],
     });
   }
 
   if (!(await user.isCorrectPassword(currentPassword, user.password))) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["Current password is incorrect"],
     });
   }

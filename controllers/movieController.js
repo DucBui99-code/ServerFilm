@@ -26,7 +26,7 @@ exports.getAllMovies = async (req, res) => {
       pathImage: PATH_IMAGE,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message, status: false });
   }
 };
 
@@ -37,7 +37,7 @@ exports.searchMovies = async (req, res) => {
     if (!q || typeof q !== "string" || q.trim().length === 0) {
       return res
         .status(400)
-        .json({ message: "Invalid Query", items: [], status: "error" });
+        .json({ message: "Invalid Query", items: [], status: false });
     }
 
     const safeQuery = q.replace(
@@ -48,7 +48,7 @@ exports.searchMovies = async (req, res) => {
     if (safeQuery.length > 50) {
       return res
         .status(400)
-        .json({ message: "Query is to long", items: [], status: "error" });
+        .json({ message: "Query is to long", items: [], status: false });
     }
 
     const movies = await Movie.find({
@@ -64,7 +64,7 @@ exports.searchMovies = async (req, res) => {
       pathImage: PATH_IMAGE,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message, status: false });
   }
 };
 
@@ -74,7 +74,7 @@ exports.getMovieBySlug = async (req, res) => {
 
     if (!slug || typeof slug !== "string" || slug.trim().length === 0) {
       return res.status(400).json({
-        status: "error",
+        status: false,
         message: ["Invalid Slug"],
       });
     }
@@ -99,6 +99,6 @@ exports.getMovieBySlug = async (req, res) => {
       episodes: movie.episodes,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message, status: false });
   }
 };

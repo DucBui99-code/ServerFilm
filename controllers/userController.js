@@ -7,7 +7,7 @@ exports.getProfile = async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return res
       .status(400)
-      .json({ message: ["Invalid userId format"], status: "error" });
+      .json({ message: ["Invalid userId format"], status: false });
   }
 
   const user = await User.findById(userId).select(
@@ -16,13 +16,13 @@ exports.getProfile = async (req, res) => {
 
   if (!user) {
     return res.status(404).json({
-      status: "error",
+      status: false,
       message: ["User not found"],
     });
   }
 
   res.status(200).json({
-    status: "success",
+    status: true,
     data: user,
   });
 };
@@ -34,7 +34,7 @@ exports.updateInfomation = async (req, res) => {
 
   if (!username && !avatar) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["Both username or avatar are required"],
     });
   }
@@ -42,12 +42,12 @@ exports.updateInfomation = async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return res
       .status(400)
-      .json({ message: ["Invalid userId format"], status: "error" });
+      .json({ message: ["Invalid userId format"], status: false });
   }
 
   if (!isValidAvatarURL(avatar)) {
     return res.status(400).json({
-      status: "error",
+      status: false,
       message: ["Invalid avatar link"],
     });
   }
@@ -56,7 +56,7 @@ exports.updateInfomation = async (req, res) => {
 
   if (!user) {
     return res.status(404).json({
-      status: "error",
+      status: false,
       message: ["User not found"],
     });
   }
@@ -71,7 +71,7 @@ exports.updateInfomation = async (req, res) => {
   await user.save();
 
   res.status(200).json({
-    status: "success",
+    status: true,
     message: "User info updated",
   });
 };

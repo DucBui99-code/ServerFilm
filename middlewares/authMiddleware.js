@@ -7,9 +7,10 @@ const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res
-      .status(401)
-      .json({ message: "Authorization header is missing or invalid" });
+    return res.status(401).json({
+      message: "Authorization header is missing or invalid",
+      status: false,
+    });
   }
 
   const token = authHeader.split(" ")[1];
@@ -19,7 +20,7 @@ const authMiddleware = (req, res, next) => {
     req.user = decoded; // Gán thông tin user vào request
     next(); // Tiếp tục xử lý request
   } catch (err) {
-    return res.status(403).json({ message: "Invalid token" });
+    return res.status(403).json({ message: "Invalid token", status: false });
   }
 };
 

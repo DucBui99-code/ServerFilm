@@ -64,19 +64,14 @@ UserSchema.pre("save", async function (next) {
   // Hash the otp with cost of 12
   this.otp = await bcrypt.hash(this.otp.toString(), 12);
 
-  console.log(this.otp.toString(), "FROM PRE SAVE HOOK");
-
   next();
 });
 
 UserSchema.pre("save", async function (next) {
-  // Only run this function if password was actually modified
+  // Chỉ hash nếu mật khẩu bị thay đổi
   if (!this.isModified("password") || !this.password) return next();
 
-  // Hash the password with cost of 12
   this.password = await bcrypt.hash(this.password, 12);
-
-  //! Shift it to next hook // this.passwordChangedAt = Date.now() - 1000;
 
   next();
 });
@@ -92,8 +87,6 @@ UserSchema.pre("save", async function (next) {
     .update(this.passwordResetToken)
     .digest("hex");
   this.passwordResetExpires = Date.now() + 5 * 60 * 1000;
-
-  //! Shift it to next hook // this.passwordChangedAt = Date.now() - 1000;
 
   next();
 });

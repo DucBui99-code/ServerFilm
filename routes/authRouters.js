@@ -9,7 +9,7 @@ router.post("/register", authController.register);
 
 router.post("/sendOTP", authController.sendOTP);
 
-router.post("/verify", authController.verifyOTP);
+router.post("/verifyOTP", authController.verifyOTP);
 
 router.post("/forgotPassword", authMiddleware, authController.forgotPassword);
 
