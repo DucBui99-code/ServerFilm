@@ -12,7 +12,7 @@ const otp = require("../templates/Mail/otp");
 const EXPIRED_TIME = 1;
 
 const options = {
-  expiresIn: "10m", // token sẽ hết hạn sau 1 giờ
+  expiresIn: "1h", // token sẽ hết hạn sau 1 giờ
 };
 
 const signToken = (userId) =>

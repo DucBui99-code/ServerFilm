@@ -54,4 +54,22 @@ const detailMovieSchema = new mongoose.Schema({
 
 const DetailMovie = mongoose.model("DetailMovie", detailMovieSchema);
 
-module.exports = DetailMovie;
+const DetailMovieRent = DetailMovie.discriminator(
+  "DetailMovieRent",
+  new mongoose.Schema(
+    {
+      movieId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Movie",
+        required: true,
+      },
+      isBuyByMonth: { type: Boolean, default: true },
+      isBuyBySingle: { type: Boolean, default: true },
+      price: { type: Number },
+      duration: { type: Number, defaulValue: 2 },
+    },
+    { discriminatorKey: "__t" }
+  )
+);
+
+module.exports = { DetailMovie, DetailMovieRent };

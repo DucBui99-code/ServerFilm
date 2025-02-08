@@ -55,6 +55,38 @@ const UserSchema = new mongoose.Schema({
   otpExpires: {
     type: Date,
   },
+
+  purchasedMoviesMonth: [
+    {
+      packageId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PackagesPrice",
+        required: true,
+      },
+      purchaseDate: String,
+      exprationDate: String,
+    },
+  ],
+
+  purchasedMoviesRent: [
+    {
+      movieId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Movie",
+        required: true,
+      },
+      purchaseDate: String,
+      exprationDate: String,
+    },
+  ],
+
+  purchasedHistory: [
+    {
+      name: String,
+      price: Number,
+      purchaseDate: String,
+    },
+  ],
 });
 
 UserSchema.pre("save", async function (next) {

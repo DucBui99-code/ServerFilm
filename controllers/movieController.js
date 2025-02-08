@@ -1,19 +1,27 @@
-const Movie = require("../models/MovieModel");
-const DetailMovie = require("../models/DetailMovieModel");
+const { Movie } = require("../models/MovieModel");
+const { DetailMovie } = require("../models/DetailMovieModel");
 
 const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
 
 exports.getAllMovies = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
+    const type = req.query.type || "movie";
     const limit = 24;
     const skip = (page - 1) * limit;
 
-    // Lấy tổng số lượng phim
-    const totalMovies = await Movie.countDocuments();
+    let filter = {};
 
-    // Lấy danh sách phim theo trang
-    const movies = await Movie.find().skip(skip).limit(limit);
+    // Xác định loại phim cần lấy
+    if (type === "movie") {
+      filter = { __t: { $ne: "MovieRent" } }; // Lấy các Movie bình thường
+    } else if (type === "movieRent") {
+      filter = { __t: "MovieRent" }; // Lấy các MovieRent
+    }
+
+    const totalMovies = await Movie.countDocuments(filter);
+
+    const movies = await Movie.find(filter).skip(skip).limit(limit);
 
     return res.json({
       status: true,
@@ -24,6 +32,7 @@ exports.getAllMovies = async (req, res) => {
       },
       items: movies,
       pathImage: PATH_IMAGE,
+      message: "Get moive success",
     });
   } catch (error) {
     res.status(500).json({ message: error.message, status: false });
@@ -58,10 +67,13 @@ exports.searchMovies = async (req, res) => {
       ],
     });
 
-    return res.json({
+    return res.status(200).json({
       status: true,
-      items: movies,
-      pathImage: PATH_IMAGE,
+      data: {
+        items: movies,
+        pathImage: PATH_IMAGE,
+      },
+      message: "Search movie success",
     });
   } catch (error) {
     res.status(500).json({ message: error.message, status: false });
@@ -84,8 +96,10 @@ exports.getMovieBySlug = async (req, res) => {
     if (!movie) {
       return res.status(404).json({
         status: false,
-        movie: null,
-        episodes: [],
+        data: {
+          movie: null,
+          episodes: [],
+        },
         message: ["Movie not found"],
       });
     }
@@ -95,8 +109,37 @@ exports.getMovieBySlug = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      movie: movieData,
-      episodes: movie.episodes,
+      data: movieData,
+      message: "Get movie success",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message, status: false });
+  }
+};
+
+exports.getDetailMovieEpisode = async (req, res) => {
+  try {
+    const { movieId, indexEpisode } = req.body;
+
+    const dataDetailMovie = await DetailMovie.findById(movieId);
+
+    if (!dataDetailMovie) {
+      return res.status(404).json({
+        message: ["Detail movie not found"],
+        staus: false,
+      });
+    }
+
+    const dataEpisodes = dataDetailMovie.episodes[0].server_data[indexEpisode];
+    if (!dataEpisodes) {
+      return res.status(404).json({
+        message: ["Index Episode not found"],
+        staus: false,
+      });
+    }
+    return res.status(200).json({
+      status: true,
+      data: dataEpisodes,
     });
   } catch (error) {
     res.status(500).json({ message: error.message, status: false });
