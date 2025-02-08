@@ -72,7 +72,7 @@ const UserSchema = new mongoose.Schema({
     {
       movieId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Movie",
+        ref: "DetailMovie",
         required: true,
       },
       purchaseDate: String,

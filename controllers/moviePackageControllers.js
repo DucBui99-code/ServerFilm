@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const moment = require("moment");
 const { PackagePrice } = require("../models/PackageMovieModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
@@ -27,31 +26,41 @@ exports.createPackage = async (req, res) => {
 exports.getPackage = async (req, res) => {
   try {
     const { movieId } = req.query;
-    let movieData = {};
+    let packageMovieSingle = {};
 
     if (movieId) {
-      const objectId = new mongoose.Types.ObjectId(movieId);
+      const dataDetailMovie = await DetailMovie.findById(movieId);
 
-      movieData = await DetailMovie.findOne({ movieId: objectId }).select(
-        "name price duration -_id"
-      );
-
-      if (!movieData) {
-        return res.status(404).json({
-          status: false,
-          message: ["Movie not found"],
-        });
+      if (dataDetailMovie) {
+        // Only populate packageMovieSingle if the movie is valid
+        if (
+          dataDetailMovie.__t === "DetailMovieRent" &&
+          dataDetailMovie.isBuyBySingle
+        ) {
+          packageMovieSingle = {
+            name: dataDetailMovie.name,
+            price: dataDetailMovie.price,
+            _id: dataDetailMovie._id,
+          };
+        }
       }
     }
 
     const packages = await PackagePrice.find();
+
+    if (!packages || packages.length === 0) {
+      return res.status(404).json({
+        status: false,
+        message: "No packages available",
+      });
+    }
 
     return res.status(200).json({
       status: true,
       message: "Get Package success",
       data: {
         packageMonth: packages,
-        packageSingle: movieData,
+        packageSingle: packageMovieSingle, // Will be {} if no valid movie found
       },
     });
   } catch (error) {
@@ -66,13 +75,6 @@ exports.buyPackageMonth = async (req, res) => {
   try {
     const { packageId } = req.body;
     const { userId } = req.user;
-
-    if (!mongoose.Types.ObjectId.isValid(packageId)) {
-      return res.status(400).json({
-        status: false,
-        message: ["Invalid packageId format"],
-      });
-    }
 
     const user = await User.findById(userId);
 
@@ -134,6 +136,92 @@ exports.buyPackageMonth = async (req, res) => {
   } catch (error) {
     console.log(error.message);
 
+    return res.status(500).json({
+      status: false,
+      message: ["Internal server error"],
+    });
+  }
+};
+
+exports.buyMovieSingle = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { movieId } = req.body;
+
+    const dataMovie = await DetailMovie.findById(movieId);
+    const dataUser = await User.findById(userId);
+
+    if (!dataMovie) {
+      return res
+        .status(404)
+        .json({ message: "Movie not found", status: false });
+    }
+    if (dataMovie.__t !== "DetailMovieRent" || !dataMovie.isBuyBySingle) {
+      return res.status(400).json({
+        message: "This movie is not available for rent.",
+        status: false,
+      });
+    }
+    if (dataMovie.duration <= 0) {
+      return res.status(400).json({
+        message: "Duraion must be > 0",
+        status: false,
+      });
+    }
+    const isAlreadyPurchased = dataUser.purchasedMoviesRent.some((rent) => {
+      const isSameMovie = rent.movieId.toString() == movieId.toString();
+      const isNotExpired = moment(rent.exprationDate, "DD/MM/YYYY").isAfter(
+        moment()
+      );
+
+      return isSameMovie && isNotExpired;
+    });
+
+    if (isAlreadyPurchased) {
+      return res.status(400).json({
+        message: "This movie already rent and not expired",
+        status: false,
+      });
+    }
+
+    const existingRentIndex = dataUser.purchasedMoviesRent.findIndex(
+      (rent) => rent.movieId.toString() == movieId.toString()
+    );
+
+    const purchaseDate = moment().format("DD/MM/YYYY");
+    const expirationDate = moment()
+      .add(dataMovie.duration, "days")
+      .format("DD/MM/YYYY");
+
+    if (existingRentIndex !== -1) {
+      // Gói đã hết hạn -> cập nhật thông tin mới
+      dataUser.purchasedMoviesRent[existingRentIndex].purchaseDate =
+        purchaseDate;
+      dataUser.purchasedMoviesRent[existingRentIndex].exprationDate =
+        expirationDate;
+    } else {
+      // Gói chưa tồn tại -> thêm mới
+      dataUser.purchasedMoviesRent.push({
+        movieId,
+        purchaseDate,
+        exprationDate: expirationDate,
+      });
+    }
+
+    dataUser.purchasedHistory.push({
+      name: dataMovie.name,
+      price: dataMovie.price,
+      purchaseDate: moment().format("DD/MM/YYYY HH:mm:ss"),
+    });
+
+    await dataUser.save({ validateModifiedOnly: true });
+
+    return res.status(200).json({
+      status: true,
+      message: "Rent movie success",
+      data: dataUser.purchasedMoviesRent,
+    });
+  } catch (error) {
     return res.status(500).json({
       status: false,
       message: ["Internal server error"],

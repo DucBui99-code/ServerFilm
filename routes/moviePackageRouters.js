@@ -6,6 +6,7 @@ const moviePack = require("../controllers/moviePackageControllers");
 router.get("/packagePrice", moviePack.getPackage);
 router.post("/createMoviePackage", moviePack.createPackage);
 router.post("/buyMoviePackage", authMiddleware, moviePack.buyPackageMonth);
+router.post("/buyMovieRent", authMiddleware, moviePack.buyMovieSingle);
 router.get(
   "/getTotalPackageMonth",
   authMiddleware,
