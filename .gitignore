@@ -3,6 +3,7 @@
 
 # Ignore thư mục node_modules
 node_modules/
+config.env
 
 # Ignore file hoặc thư mục cụ thể
 dist/
