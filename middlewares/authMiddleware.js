@@ -1,14 +1,15 @@
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
+const User = require("../models/UserModel"); // Import model User
 
 dotenv.config({ path: "./config.env" });
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
-      message: "Authorization header is missing or invalid",
+      message: ["Authorization header is missing or invalid"],
       status: false,
     });
   }
@@ -17,10 +18,25 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Gán thông tin user vào request
-    next(); // Tiếp tục xử lý request
+
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res
+        .status(403)
+        .json({ message: ["User not found"], status: false });
+    }
+
+    if (user.isDisabled) {
+      return res
+        .status(403)
+        .json({ message: ["User is disabled"], status: false });
+    }
+
+    req.user = decoded;
+    next();
   } catch (err) {
-    return res.status(403).json({ message: "Invalid token", status: false });
+    return res.status(403).json({ message: ["Invalid token"], status: false });
   }
 };
 

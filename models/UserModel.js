@@ -2,92 +2,138 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
-const moment = require("moment-timezone");
-
-const UserSchema = new mongoose.Schema({
-  username: { type: String, required: [true, "Name is required"] },
-  avatar: {
-    type: String,
-  },
-  email: {
-    type: String,
-    required: [true, "Email is required"],
-    validate: {
-      validator: function (email) {
-        return String(email)
-          .toLowerCase()
-          .match(
-            /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+const UserSchema = new mongoose.Schema(
+  {
+    username: {
+      type: String,
+      required: [true, "Name is required"],
+      maxLength: [10, "username must be less than 10 characters"],
+    },
+    avatar: {
+      id: String,
+      url: String,
+    },
+    firstLastName: {
+      type: String,
+      maxLength: [20, "firstLastName must be less than 20 characters"],
+    },
+    birthDay: {
+      type: String,
+    },
+    sex: {
+      type: String,
+      enum: ["Male", "Female", "Ohter"],
+    },
+    phoneNumber: {
+      type: String,
+      unique: true, // Không cho phép trùng số điện thoại
+      validate: {
+        validator: function (v) {
+          return /^(?:\+84|0)(3[2-9]|5[2689]|7[0-9]|8[1-9]|9[0-9])\d{7}$/.test(
+            v
           );
+        },
+        message: (props) =>
+          `${props.value} is not a valid Vietnamese phone number!`,
       },
-      message: (props) => `Email (${props.value}) is invalid!`,
     },
-  },
-  password: {
-    type: String,
-    required: [true, "Password is required"],
-    minLength: [3, "Password must be greater than 3 characters"],
-    maxLength: [15, "Password must be less than 15 characters"],
-  },
-  passwordChangedAt: {
-    type: Date,
-  },
-  passwordResetToken: {
-    type: String,
-  },
-  passwordResetExpires: {
-    type: Date,
-  },
-  createdAt: {
-    type: Date,
-    default: () => moment.tz("Asia/Ho_Chi_Minh").add(7, "hours").toDate(),
-  },
-  updatedAt: {
-    type: Date,
-  },
-  verified: {
-    type: Boolean,
-    default: false,
-  },
-  otp: {
-    type: String,
-  },
-  otpExpires: {
-    type: Date,
-  },
-
-  purchasedMoviesMonth: [
-    {
-      packageId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "PackagesPrice",
-        required: true,
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      validate: {
+        validator: function (email) {
+          return String(email)
+            .toLowerCase()
+            .match(
+              /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+            );
+        },
+        message: (props) => `Email (${props.value}) is invalid!`,
       },
-      purchaseDate: String,
-      exprationDate: String,
     },
-  ],
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minLength: [3, "Password must be greater than 3 characters"],
+      maxLength: [15, "Password must be less than 15 characters"],
+    },
+    passwordResetToken: {
+      type: String,
+    },
+    passwordResetExpires: {
+      type: Date,
+    },
 
-  purchasedMoviesRent: [
-    {
-      movieId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "DetailMovie",
-        required: true,
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+    otp: {
+      type: String,
+    },
+    otpExpires: {
+      type: Date,
+    },
+    isDisabled: {
+      type: Boolean,
+      default: false,
+    },
+    purchasedMoviesMonth: [
+      {
+        packageId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "PackagesPrice",
+          required: true,
+        },
+        purchaseDate: String,
+        exprationDate: String,
       },
-      purchaseDate: String,
-      exprationDate: String,
-    },
-  ],
+    ],
 
-  purchasedHistory: [
-    {
-      name: String,
-      price: Number,
-      purchaseDate: String,
-    },
-  ],
-});
+    purchasedMoviesRent: [
+      {
+        movieId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "DetailMovie",
+          required: true,
+        },
+        purchaseDate: String,
+        exprationDate: String,
+      },
+    ],
+
+    purchasedHistory: [
+      {
+        name: String,
+        price: Number,
+        purchaseDate: String,
+        status: {
+          type: String,
+          enum: ["success", "fault", "pending"],
+        },
+      },
+    ],
+
+    favoriteMovies: [
+      {
+        movieId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "DetailMovie",
+          required: true,
+        },
+      },
+    ],
+    deviceManagement: [
+      {
+        deviceName: String,
+        deviceType: String,
+        browser: String,
+        timeDetected: String,
+      },
+    ],
+  },
+  { timestamps: true }
+);
 
 UserSchema.pre("save", async function (next) {
   // Only run this function if password was actually modified

@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const otpGenerator = require("otp-generator");
 const mongoose = require("mongoose");
+const uaParser = require("ua-parser-js");
 
 const filterObj = require("../utils/fillterObject");
 const mailServices = require("../services/mailer");
@@ -231,6 +232,18 @@ exports.login = async (req, res, next) => {
       message: ["Account has not been verified"],
     });
   }
+
+  if (userDoc.isDisabled) {
+    return res.status(400).json({
+      status: false,
+      message: ["Account has been disalbe. Please contact to admin"],
+    });
+  }
+
+  const parser = new uaParser(req.headers["user-agent"]);
+  const result = parser.getResult();
+  console.log(result);
+
   const token = signToken(userDoc._id);
 
   return res.status(200).json({

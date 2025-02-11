@@ -232,23 +232,32 @@ exports.buyMovieSingle = async (req, res) => {
 exports.getTotalPackageMonthDuration = async (req, res) => {
   try {
     const { userId } = req.user;
-
     const user = await User.findById(userId);
 
     const now = moment();
     let totalDuration = moment.duration(0);
     let maxExpirationDate = null;
 
+    if (user.purchasedMoviesMonth.length === 0) {
+      return res.status(400).json({
+        status: false,
+        message: ["There no pack available"],
+      });
+    }
+
     user.purchasedMoviesMonth.forEach((pkg) => {
       const expiration = moment(pkg.exprationDate, "DD/MM/YYYY");
       if (expiration.isAfter(now)) {
         totalDuration.add(moment.duration(expiration.diff(now)));
       }
-
       if (!maxExpirationDate || expiration.isAfter(maxExpirationDate)) {
         maxExpirationDate = expiration;
       }
     });
+
+    const isExpired = maxExpirationDate
+      ? maxExpirationDate.isBefore(now)
+      : true;
 
     const hours = totalDuration.hours();
     const minutes = totalDuration.minutes();
@@ -257,12 +266,15 @@ exports.getTotalPackageMonthDuration = async (req, res) => {
     return res.status(200).json({
       status: true,
       message: "Get total package month success",
-      data: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-        2,
-        "0"
-      )}:${String(seconds).padStart(2, "0")} ${maxExpirationDate.format(
-        "DD/MM/YYYY"
-      )}`,
+      data: {
+        timeRemaining: `${String(hours).padStart(2, "0")}:${String(
+          minutes
+        ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+        expirationDate: maxExpirationDate
+          ? maxExpirationDate.format("DD/MM/YYYY")
+          : null,
+        isExpired,
+      },
     });
   } catch (error) {
     return res.status(500).json({
