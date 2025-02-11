@@ -9,8 +9,10 @@ const mailServices = require("../services/mailer");
 const User = require("../models/UserModel.js");
 const resetPassword = require("../templates/Mail/resetPassword.js");
 const otp = require("../templates/Mail/otp");
+const { getDeviceId } = require("../services/getDeviceId.js");
 
 const EXPIRED_TIME = 1;
+const LIMIT_DEVICE = 3;
 
 const options = {
   expiresIn: "1h", // token sẽ hết hạn sau 1 giờ
@@ -98,8 +100,6 @@ exports.register = async (req, res, next) => {
       userId: userDoc._id,
     });
   } catch (error) {
-    console.error("Error in register:", error);
-
     return res.status(500).json({
       status: false,
       message: error.message || "Something went wrong!",
@@ -109,151 +109,177 @@ exports.register = async (req, res, next) => {
 
 // Send OTP
 exports.sendOTP = async (req, res, next) => {
-  const { userId } = req.body;
+  try {
+    const { userId } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return res.status(400).json({ message: ["Invalid userId format"] });
-  }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: ["Invalid userId format"] });
+    }
 
-  const new_otp = otpGenerator.generate(6, {
-    upperCaseAlphabets: false,
-    specialChars: false,
-    lowerCaseAlphabets: false,
-  });
+    const new_otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+      lowerCaseAlphabets: false,
+    });
 
-  const otpExpires = Date.now() + EXPIRED_TIME * 60 * 1000;
+    const otpExpires = Date.now() + EXPIRED_TIME * 60 * 1000;
 
-  const user = await User.findByIdAndUpdate(userId, {
-    otpExpires,
-  });
-  if (!user) {
-    return res.status(404).json({
+    const user = await User.findByIdAndUpdate(userId, {
+      otpExpires,
+    });
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: ["User does not exist"],
+      });
+    }
+    user.otp = new_otp.toString();
+    await user.save({ new: true, validateModifiedOnly: true });
+
+    mailServices.sendEmail({
+      to: user.email,
+      subject: "Verification OTP",
+      html: otp(user.username, new_otp, EXPIRED_TIME),
+      attachments: [],
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Send OTP successfully",
+      timeExpired: EXPIRED_TIME,
+    });
+  } catch (error) {
+    return res.status(500).json({
       status: false,
-      message: ["User does not exist"],
+      message: error.message || "Something went wrong!",
     });
   }
-  user.otp = new_otp.toString();
-  await user.save({ new: true, validateModifiedOnly: true });
-
-  mailServices.sendEmail({
-    to: user.email,
-    subject: "Verification OTP",
-    html: otp(user.username, new_otp, EXPIRED_TIME),
-    attachments: [],
-  });
-
-  return res.status(200).json({
-    status: true,
-    message: "Send OTP successfully",
-    timeExpired: EXPIRED_TIME,
-  });
 };
 
 // Verify OTP
 exports.verifyOTP = async (req, res, next) => {
-  const { email, otp } = req.body;
+  try {
+    const { email, otp } = req.body;
 
-  const user = await User.findOne({
-    email: email,
-  });
+    const user = await User.findOne({
+      email: email,
+    });
 
-  if (!user) {
-    return res.status(400).json({
+    if (!user) {
+      return res.status(400).json({
+        status: false,
+        message: ["Email is invalid"],
+      });
+    }
+
+    if (new Date(user.otpExpires).getTime() < Date.now()) {
+      return res.status(400).json({
+        status: false,
+        message: ["OTP is expired"],
+      });
+    }
+    if (!(await user.correctOTP(otp, user.otp))) {
+      return res.status(400).json({
+        status: false,
+        message: ["OTP is incorrect"],
+      });
+    }
+
+    user.otp = undefined;
+    user.verified = true;
+
+    await user.save({
+      new: true,
+      validateModifiedOnly: true,
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Verify OTP successfully",
+      data: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
       status: false,
-      message: ["Email is invalid"],
+      message: error.message || "Something went wrong!",
     });
   }
-
-  if (new Date(user.otpExpires).getTime() < Date.now()) {
-    return res.status(400).json({
-      status: false,
-      message: ["OTP is expired"],
-    });
-  }
-  if (!(await user.correctOTP(otp, user.otp))) {
-    return res.status(400).json({
-      status: false,
-      message: ["OTP is incorrect"],
-    });
-  }
-
-  user.otp = undefined;
-  user.verified = true;
-
-  await user.save({
-    new: true,
-    validateModifiedOnly: true,
-  });
-
-  const token = signToken(user._id);
-
-  return res.status(200).json({
-    status: true,
-    message: "Logged in successfully",
-    data: {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt,
-      token: token,
-    },
-  });
 };
 
 // Login
 exports.login = async (req, res, next) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({
+    // console.log(getDeviceId(req));
+
+    if (!email || !password) {
+      return res.status(400).json({
+        status: false,
+        message: ["Both email and password are required"],
+      });
+    }
+
+    const userDoc = await User.findOne({ email: email }).select("+password");
+
+    if (!userDoc) {
+      return res.status(404).json({
+        status: false,
+        message: ["Email or Password is incorrect"],
+      });
+    }
+    if (!(await userDoc.isCorrectPassword(password, userDoc.password))) {
+      return res.status(404).json({
+        status: false,
+        message: ["Email or Password is incorrect"],
+      });
+    }
+
+    if (!userDoc.verified) {
+      return res.status(400).json({
+        status: false,
+        message: ["Account has not been verified"],
+      });
+    }
+
+    if (userDoc.isDisabled) {
+      return res.status(400).json({
+        status: false,
+        message: ["Account has been disalbe. Please contact to admin"],
+      });
+    }
+
+    if (userDoc.deviceManagement.length > LIMIT_DEVICE) {
+      return res.status(400).json({
+        status: false,
+        message: [`Just only allow ${LIMIT_DEVICE} login`],
+      });
+    }
+
+    const parser = new uaParser(req.headers["user-agent"]);
+    const result = parser.getResult();
+
+    const token = signToken(userDoc._id);
+
+    return res.status(200).json({
+      status: true,
+      message: "Logged in successfully",
+      data: {
+        token: token,
+        userId: userDoc._id,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
       status: false,
-      message: ["Both email and password are required"],
+      message: error.message || "Something went wrong!",
     });
   }
-
-  const userDoc = await User.findOne({ email: email }).select("+password");
-
-  if (!userDoc) {
-    return res.status(404).json({
-      status: false,
-      message: ["Email or Password is incorrect"],
-    });
-  }
-  if (!(await userDoc.isCorrectPassword(password, userDoc.password))) {
-    return res.status(404).json({
-      status: false,
-      message: ["Email or Password is incorrect"],
-    });
-  }
-
-  if (!userDoc.verified) {
-    return res.status(400).json({
-      status: false,
-      message: ["Account has not been verified"],
-    });
-  }
-
-  if (userDoc.isDisabled) {
-    return res.status(400).json({
-      status: false,
-      message: ["Account has been disalbe. Please contact to admin"],
-    });
-  }
-
-  const parser = new uaParser(req.headers["user-agent"]);
-  const result = parser.getResult();
-  console.log(result);
-
-  const token = signToken(userDoc._id);
-
-  return res.status(200).json({
-    status: true,
-    message: "Logged in successfully",
-    data: {
-      token: token,
-      userId: userDoc._id,
-    },
-  });
 };
 
 // Forgot Password
@@ -321,7 +347,8 @@ exports.resetPassword = async (req, res, next) => {
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
 
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
+
     return res.status(200).json({
       status: true,
       message: "Password Rested Successfully",
@@ -331,7 +358,7 @@ exports.resetPassword = async (req, res, next) => {
     for (const property in error.errors) {
       errors.push(`${error.errors[property]}`);
     }
-    return res.status(404).json({
+    return res.status(500).json({
       status: false,
       message: errors,
     });
@@ -340,35 +367,42 @@ exports.resetPassword = async (req, res, next) => {
 
 // Change Password
 exports.updatePassword = async (req, res, next) => {
-  const { userId } = req.user;
-  const { currentPassword, newPassword } = req.body;
+  try {
+    const { userId } = req.user;
+    const { currentPassword, newPassword } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return res.status(400).json({ message: ["Invalid userId format"] });
-  }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: ["Invalid userId format"] });
+    }
 
-  const user = await User.findById(userId).select("+password");
+    const user = await User.findById(userId).select("+password");
 
-  if (!user) {
-    return res.status(404).json({
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: ["User does not exist"],
+      });
+    }
+
+    if (!(await user.isCorrectPassword(currentPassword, user.password))) {
+      return res.status(400).json({
+        status: false,
+        message: ["Current password is incorrect"],
+      });
+    }
+
+    user.password = newPassword;
+
+    await user.save({ validateModifiedOnly: true });
+
+    return res.status(200).json({
+      status: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
       status: false,
-      message: ["User does not exist"],
+      message: error.message,
     });
   }
-
-  if (!(await user.isCorrectPassword(currentPassword, user.password))) {
-    return res.status(400).json({
-      status: false,
-      message: ["Current password is incorrect"],
-    });
-  }
-
-  user.password = newPassword;
-
-  await user.save();
-
-  return res.status(200).json({
-    status: true,
-    message: "Password updated successfully",
-  });
 };

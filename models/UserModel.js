@@ -26,7 +26,6 @@ const UserSchema = new mongoose.Schema(
     },
     phoneNumber: {
       type: String,
-      unique: true, // Không cho phép trùng số điện thoại
       validate: {
         validator: function (v) {
           return /^(?:\+84|0)(3[2-9]|5[2689]|7[0-9]|8[1-9]|9[0-9])\d{7}$/.test(
