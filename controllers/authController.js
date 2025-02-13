@@ -3,7 +3,14 @@ const crypto = require("crypto");
 const otpGenerator = require("otp-generator");
 const mongoose = require("mongoose");
 const uaParser = require("ua-parser-js");
+const moment = require("moment");
 
+const {
+  LIMIT_DEVICE,
+  EXPIRED_TIME_OTP,
+  EXPIRED_TIME_TOKEN,
+  NUMBER_OTP_GENERATE,
+} = require("../config/CONSTANT.js");
 const filterObj = require("../utils/fillterObject");
 const mailServices = require("../services/mailer");
 const User = require("../models/UserModel.js");
@@ -11,69 +18,15 @@ const resetPassword = require("../templates/Mail/resetPassword.js");
 const otp = require("../templates/Mail/otp");
 const { getDeviceId } = require("../services/getDeviceId.js");
 
-const EXPIRED_TIME = 1;
-const LIMIT_DEVICE = 3;
-
 const options = {
-  expiresIn: "1h", // token sẽ hết hạn sau 1 giờ
+  expiresIn: EXPIRED_TIME_TOKEN,
 };
 
 const signToken = (userId) =>
   jwt.sign({ userId }, process.env.JWT_SECRET, options);
 
-// exports.protect = async (req, res, next) => {
-//   let token;
-//   if (
-//     req.headers.authorization &&
-//     req.headers.authorization.startsWith("Bearer")
-//   ) {
-//     token = req.headers.authorization.split(" ")[1];
-//   } else {
-//     return res.status(401).json({
-//        status: false,
-//       message: "You are not logged in! Please log in to access",
-//     });
-//   }
-
-//   try {
-//     // Verify Token
-//     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-
-//     // Check if the user still exists
-//     const this_user = await User.findById(decoded.userId);
-//     if (!this_user) {
-//       return res.status(400).json({
-//          status: false,
-//         message: "The user doesn't exist",
-//       });
-//     }
-
-//     // Set user on request
-//     req.user = this_user;
-//     next();
-//   } catch (err) {
-//     if (err.name === "TokenExpiredError") {
-//       return res.status(401).json({
-//          status: false,
-//         message: "Token has expired. Please log in again",
-//       });
-//     } else if (err.name === "JsonWebTokenError") {
-//       return res.status(401).json({
-//          status: false,
-//         message: "Invalid token. Please log in again",
-//       });
-//     } else {
-//       return res.status(500).json({
-//          status: false,
-//         message: "Internal server error. Please contact the administrator.",
-//       });
-//     }
-//   }
-// };
-
 // Register
-
-exports.register = async (req, res, next) => {
+exports.register = async (req, res) => {
   try {
     const { email } = req.body;
     const filteredBody = filterObj(req.body, "username", "password", "email");
@@ -108,21 +61,17 @@ exports.register = async (req, res, next) => {
 };
 
 // Send OTP
-exports.sendOTP = async (req, res, next) => {
+exports.sendOTP = async (req, res) => {
   try {
     const { userId } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: ["Invalid userId format"] });
-    }
-
-    const new_otp = otpGenerator.generate(6, {
+    const new_otp = otpGenerator.generate(NUMBER_OTP_GENERATE, {
       upperCaseAlphabets: false,
       specialChars: false,
       lowerCaseAlphabets: false,
     });
 
-    const otpExpires = Date.now() + EXPIRED_TIME * 60 * 1000;
+    const otpExpires = Date.now() + EXPIRED_TIME_OTP * 60 * 1000;
 
     const user = await User.findByIdAndUpdate(userId, {
       otpExpires,
@@ -139,14 +88,14 @@ exports.sendOTP = async (req, res, next) => {
     mailServices.sendEmail({
       to: user.email,
       subject: "Verification OTP",
-      html: otp(user.username, new_otp, EXPIRED_TIME),
+      html: otp(user.username, new_otp, EXPIRED_TIME_OTP),
       attachments: [],
     });
 
     return res.status(200).json({
       status: true,
       message: "Send OTP successfully",
-      timeExpired: EXPIRED_TIME,
+      timeExpired: EXPIRED_TIME_OTP,
     });
   } catch (error) {
     return res.status(500).json({
@@ -157,7 +106,7 @@ exports.sendOTP = async (req, res, next) => {
 };
 
 // Verify OTP
-exports.verifyOTP = async (req, res, next) => {
+exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
@@ -212,11 +161,9 @@ exports.verifyOTP = async (req, res, next) => {
 };
 
 // Login
-exports.login = async (req, res, next) => {
+exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // console.log(getDeviceId(req));
 
     if (!email || !password) {
       return res.status(400).json({
@@ -262,7 +209,27 @@ exports.login = async (req, res, next) => {
     }
 
     const parser = new uaParser(req.headers["user-agent"]);
-    const result = parser.getResult();
+    const resultInforDevice = parser.getResult();
+    const deviceId = getDeviceId(req);
+
+    const isAlearadyExit = userDoc.deviceManagement.find((deivce) => {
+      return deivce.deviceId === deviceId;
+    });
+
+    if (!isAlearadyExit) {
+      userDoc.deviceManagement.push({
+        deviceId,
+        deviceName: resultInforDevice.device.model || "Unknown",
+        deviceType: resultInforDevice.device.type || "PC",
+        browser: resultInforDevice.browser.name || "Unknown",
+        timeDetected: moment().format("HH:mm:ss DD-MM-YYYY"),
+      });
+
+      await userDoc.save({
+        new: true,
+        validateModifiedOnly: true,
+      });
+    }
 
     const token = signToken(userDoc._id);
 
@@ -273,6 +240,59 @@ exports.login = async (req, res, next) => {
         token: token,
         userId: userDoc._id,
       },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: error.message || "Something went wrong!",
+    });
+  }
+};
+// Remove Account
+exports.deleteAccount = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const userDoc = await User.findByIdAndDelete(userId);
+
+    if (!userDoc) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "Account deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: error.message || "Something went wrong!",
+    });
+  }
+};
+// Logout Acount
+exports.logout = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const deviceId = getDeviceId(req);
+
+    const userDoc = await User.findById(userId);
+    if (!userDoc) return res.status(404).json({ message: "Not found user" });
+
+    // Xóa session của thiết bị hiện tại
+    userDoc.deviceManagement = userDoc.deviceManagement.filter(
+      (device) => device.deviceId !== deviceId
+    );
+    await userDoc.save({
+      new: true,
+      validateModifiedOnly: true,
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Log out successfully",
     });
   } catch (error) {
     return res.status(500).json({

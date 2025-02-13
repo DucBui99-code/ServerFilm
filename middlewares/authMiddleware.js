@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
-const User = require("../models/UserModel"); // Import model User
+const User = require("../models/UserModel");
 
 dotenv.config({ path: "./config.env" });
 
@@ -30,7 +30,10 @@ const authMiddleware = async (req, res, next) => {
     if (user.isDisabled) {
       return res
         .status(403)
-        .json({ message: ["User is disabled"], status: false });
+        .json({
+          message: ["User is disabled. Please contact with admin"],
+          status: false,
+        });
     }
 
     req.user = decoded;

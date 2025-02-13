@@ -17,4 +17,8 @@ router.post("/resetPassword", authMiddleware, authController.resetPassword);
 
 router.post("/changePassword", authMiddleware, authController.updatePassword);
 
+router.post("/removeMySelf", authMiddleware, authController.deleteAccount);
+
+router.post("/logout", authMiddleware, authController.logout);
+
 module.exports = router;

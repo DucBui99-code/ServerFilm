@@ -84,6 +84,7 @@ const UserSchema = new mongoose.Schema(
           ref: "PackagesPrice",
           required: true,
         },
+        name: String,
         purchaseDate: String,
         exprationDate: String,
       },
@@ -124,6 +125,7 @@ const UserSchema = new mongoose.Schema(
     ],
     deviceManagement: [
       {
+        deviceId: String,
         deviceName: String,
         deviceType: String,
         browser: String,

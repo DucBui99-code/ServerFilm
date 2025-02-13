@@ -29,7 +29,7 @@ exports.getPackage = async (req, res) => {
     let packageMovieSingle = {};
 
     if (movieId) {
-      const dataDetailMovie = await DetailMovie.findById(movieId);
+      const dataDetailMovie = await DetailMovie.findById(movieId).lean();
 
       if (dataDetailMovie) {
         // Only populate packageMovieSingle if the movie is valid
@@ -46,7 +46,7 @@ exports.getPackage = async (req, res) => {
       }
     }
 
-    const packages = await PackagePrice.find();
+    const packages = await PackagePrice.find().lean();
 
     if (!packages || packages.length === 0) {
       return res.status(404).json({
@@ -78,7 +78,7 @@ exports.buyPackageMonth = async (req, res) => {
 
     const user = await User.findById(userId);
 
-    const packageData = await PackagePrice.findById(packageId);
+    const packageData = await PackagePrice.findById(packageId).lean();
 
     if (!packageData) {
       return res
@@ -94,6 +94,7 @@ exports.buyPackageMonth = async (req, res) => {
     const existingPackage = user.purchasedMoviesMonth.find(
       (pkg) => pkg.packageId.toString() === packageId.toString()
     );
+
     if (existingPackage) {
       // Nếu gói đã tồn tại, cộng dồn thêm thời gian
       const currentExpiration = moment(
@@ -114,6 +115,7 @@ exports.buyPackageMonth = async (req, res) => {
       // Nếu chưa có gói này, thêm mới
       user.purchasedMoviesMonth.push({
         packageId,
+        name: namePackage,
         purchaseDate: now.format("DD/MM/YYYY"),
         exprationDate: now.add(durationInMonths, "months").format("DD/MM/YYYY"),
       });
@@ -134,8 +136,6 @@ exports.buyPackageMonth = async (req, res) => {
       data: user.purchasedMoviesMonth,
     });
   } catch (error) {
-    console.log(error.message);
-
     return res.status(500).json({
       status: false,
       message: ["Internal server error"],
@@ -148,7 +148,7 @@ exports.buyMovieSingle = async (req, res) => {
     const { userId } = req.user;
     const { movieId } = req.body;
 
-    const dataMovie = await DetailMovie.findById(movieId);
+    const dataMovie = await DetailMovie.findById(movieId).lean();
     const dataUser = await User.findById(userId);
 
     if (!dataMovie) {
@@ -232,7 +232,7 @@ exports.buyMovieSingle = async (req, res) => {
 exports.getTotalPackageMonthDuration = async (req, res) => {
   try {
     const { userId } = req.user;
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).lean();
 
     const now = moment();
     let totalDuration = moment.duration(0);

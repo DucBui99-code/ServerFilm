@@ -11,10 +11,15 @@ const authMiddlewareNoReturn = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await UserDB.findById(decoded.userId).select("_id");
+    const user = await UserDB.findById(decoded.userId);
 
     if (!user) {
       req.user = null;
+    } else if (user.isDisabled) {
+      return res.status(403).json({
+        message: ["User is disabled. Please contact with admin"],
+        status: false,
+      });
     } else {
       req.user = decoded;
     }

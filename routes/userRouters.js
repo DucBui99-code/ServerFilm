@@ -12,5 +12,16 @@ router.post(
   createUploader("MovieAvatar"),
   userController.upLoadAvatar
 );
+router.post(
+  "/toggleFavoriteMovie",
+  authMiddleware,
+  userController.toggleFavoriteMovie
+);
+
+router.post(
+  "/remmoveDeivce",
+  authMiddleware,
+  userController.removeDeviceManagement
+);
 
 module.exports = router;

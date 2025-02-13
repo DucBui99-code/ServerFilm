@@ -16,10 +16,4 @@ router.post(
   movieController.getDetailMovieEpisode
 );
 
-router.post(
-  "/addFavoriteMovie",
-  authMiddleware,
-  movieController.addFavoriteMovie
-);
-
 module.exports = router;

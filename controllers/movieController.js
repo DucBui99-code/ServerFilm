@@ -5,8 +5,7 @@ const {
   checkPackMonthExpiration,
   checkRentExpiration,
 } = require("../utils/checkPack");
-
-const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
+const { PATH_IMAGE } = require("../config/CONSTANT");
 
 exports.getAllMovies = async (req, res) => {
   try {
@@ -24,9 +23,9 @@ exports.getAllMovies = async (req, res) => {
       filter = { __t: "MovieRent" }; // Lấy các MovieRent
     }
 
-    const totalMovies = await Movie.countDocuments(filter);
+    const totalMovies = await Movie.countDocuments(filter).lean();
 
-    const movies = await Movie.find(filter).skip(skip).limit(limit);
+    const movies = await Movie.find(filter).skip(skip).limit(limit).lean();
 
     return res.json({
       status: true,
@@ -70,7 +69,7 @@ exports.searchMovies = async (req, res) => {
         { name: { $regex: q, $options: "i" } },
         { origin_name: { $regex: q, $options: "i" } },
       ],
-    });
+    }).lean();
 
     return res.status(200).json({
       status: true,
@@ -98,7 +97,7 @@ exports.getMovieBySlug = async (req, res) => {
       });
     }
 
-    const movie = await DetailMovie.findOne({ slug });
+    const movie = await DetailMovie.findOne({ slug }).lean();
 
     if (!movie) {
       return res.status(404).json({
@@ -138,7 +137,7 @@ exports.getDetailMovieEpisode = async (req, res) => {
     const userId = req.user?.userId || null;
 
     // Lấy chi tiết phim
-    const dataDetailMovie = await DetailMovie.findById(movieId);
+    const dataDetailMovie = await DetailMovie.findById(movieId).lean();
     if (!dataDetailMovie) {
       return res.status(404).json({
         message: ["Detail movie not found"],
@@ -163,7 +162,7 @@ exports.getDetailMovieEpisode = async (req, res) => {
           status: false,
         });
       }
-      const user = await UserDB.findById(userId);
+      const user = await UserDB.findById(userId).lean();
 
       if (
         dataDetailMovie.isBuyBySingle &&
@@ -185,44 +184,6 @@ exports.getDetailMovieEpisode = async (req, res) => {
     return res.status(200).json({
       status: true,
       data: dataEpisodes,
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
-  }
-};
-
-exports.addFavoriteMovie = async (req, res) => {
-  try {
-    const { userId } = req.user;
-    const { movieId } = req.body;
-
-    const movie = await DetailMovie.findById(movieId);
-    if (!movie) {
-      return res.status(404).json({
-        message: ["Movie not found"],
-        status: false,
-      });
-    }
-
-    const user = await UserDB.findById(userId);
-    const isAlready = user.favoriteMovies.find((movie) => {
-      return movie.movieId.toString() === movieId.toString();
-    });
-    if (isAlready) {
-      return res.status(400).json({
-        message: ["Movie has been added to favorites list"],
-        status: false,
-      });
-    }
-    user.favoriteMovies.push({
-      movieId,
-    });
-
-    await user.save({ validateModifiedOnly: true });
-
-    return res.status(200).json({
-      status: true,
-      message: "Add favorite movie successfully",
     });
   } catch (error) {
     return res.status(500).json({ message: error.message, status: false });

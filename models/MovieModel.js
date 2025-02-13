@@ -28,7 +28,15 @@ const Movie = mongoose.model("Movie", movieSchema);
 
 const MovieRent = Movie.discriminator(
   "MovieRent",
-  new mongoose.Schema({}, { discriminatorKey: "__t" })
+  new mongoose.Schema(
+    {
+      isBuyByMonth: { type: Boolean, default: true },
+      isBuyBySingle: { type: Boolean, default: true },
+      price: { type: Number },
+      duration: { type: Number, defaulValue: 2 },
+    },
+    { discriminatorKey: "__t" }
+  ) // Đặt discriminatorKey trong options
 );
 
 module.exports = { Movie, MovieRent };
