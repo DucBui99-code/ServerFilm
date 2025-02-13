@@ -107,23 +107,18 @@ exports.getMovieBySlug = async (req, res) => {
       });
     }
 
-    const movieData = movie.toObject();
-    delete movieData.episodes;
+    delete movie.episodes;
 
     // Nếu người dùng đăng nhập, kiểm tra thuê phim
-    if (
-      userId &&
-      movieData.__t === "DetailMovieRent" &&
-      movieData.isBuyBySingle
-    ) {
-      movieData.isRent = await isNeedRent(userId, movie);
+    if (userId && movie.__t === "DetailMovieRent" && movie.isBuyBySingle) {
+      movie.isRent = await isNeedRent(userId, movie);
     } else {
-      movieData.isRent = false;
+      movie.isRent = false;
     }
 
     return res.status(200).json({
       status: true,
-      data: movieData,
+      data: movie,
       message: "Get movie success",
     });
   } catch (error) {

@@ -248,6 +248,7 @@ exports.login = async (req, res) => {
     });
   }
 };
+
 // Remove Account
 exports.deleteAccount = async (req, res) => {
   try {
@@ -391,18 +392,7 @@ exports.updatePassword = async (req, res, next) => {
     const { userId } = req.user;
     const { currentPassword, newPassword } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: ["Invalid userId format"] });
-    }
-
     const user = await User.findById(userId).select("+password");
-
-    if (!user) {
-      return res.status(404).json({
-        status: false,
-        message: ["User does not exist"],
-      });
-    }
 
     if (!(await user.isCorrectPassword(currentPassword, user.password))) {
       return res.status(400).json({

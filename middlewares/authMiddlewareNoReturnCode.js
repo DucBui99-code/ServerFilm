@@ -11,7 +11,7 @@ const authMiddlewareNoReturn = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await UserDB.findById(decoded.userId);
+    const user = await UserDB.findById(decoded.userId).lean();
 
     if (!user) {
       req.user = null;
