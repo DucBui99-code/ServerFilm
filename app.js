@@ -1,10 +1,11 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const cors = require("cors");
+
 const connectDB = require("./config/database");
 const errorHandler = require("./middlewares/errorHandler");
 const requestLogger = require("./middlewares/requestLogger");
 const rateLimiter = require("./middlewares/rateLimiter");
-const cors = require("cors");
 
 dotenv.config({ path: "./config.env" });
 

@@ -152,7 +152,7 @@ exports.getDetailMovieEpisode = async (req, res) => {
 
     if (dataDetailMovie.__t === "DetailMovieRent") {
       if (!userId) {
-        return res.status(401).json({
+        return res.status(404).json({
           message: ["Please login to watch"],
           status: false,
         });
@@ -163,13 +163,13 @@ exports.getDetailMovieEpisode = async (req, res) => {
         dataDetailMovie.isBuyBySingle &&
         checkRentExpiration(user, dataDetailMovie._id)
       ) {
-        return res.status(403).json({
+        return res.status(404).json({
           message: ["Please rent this movie"],
           status: false,
         });
       }
       if (dataDetailMovie.isBuyByMonth && checkPackMonthExpiration(user)) {
-        return res.status(403).json({
+        return res.status(404).json({
           message: ["Please buy package"],
           status: false,
         });

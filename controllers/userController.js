@@ -6,26 +6,47 @@ const { PATH_IMAGE } = require("../config/CONSTANT");
 // Get Profile
 exports.getProfile = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const { userId, typeLogin } = req.user;
     const { type } = req.query;
 
     const user = await User.findById(userId);
 
     switch (type) {
       case "0":
-        const dataInforAcc = {};
-        dataInforAcc.avatar = user.avatar;
-        dataInforAcc.email = user.email;
-        dataInforAcc.firstLastName = user.firstLastName;
-        dataInforAcc.username = user.username;
-        dataInforAcc.birthDay = user.birthDay;
-        dataInforAcc.sex = user.sex;
-        dataInforAcc.phoneNumber = user.phoneNumber;
+        const getUserInfoByGoogle = (user) => ({
+          avatar: user.inforAccountGoogle.avatar,
+          email: user.inforAccountGoogle.email,
+          firstLastName: user.inforAccountGoogle.firstLastName,
+          username: user.inforAccountGoogle.username,
+        });
+
+        const getUserInfoByPass = (user) => ({
+          avatar: user.avatar,
+          email: user.email,
+          firstLastName: user.firstLastName,
+          username: user.username,
+          birthDay: user.birthDay,
+          sex: user.sex,
+          phoneNumber: user.phoneNumber,
+        });
+
+        let dataInforAcc = {};
+
+        if (typeLogin === "byGoogle") {
+          dataInforAcc = getUserInfoByGoogle(user);
+        } else if (typeLogin === "byPass") {
+          dataInforAcc = getUserInfoByPass(user);
+        } else {
+          return res.status(400).json({
+            status: false,
+            message: "Invalid type login",
+          });
+        }
 
         return res.status(200).json({
           status: true,
           data: dataInforAcc,
-          message: "Get infor successfully",
+          message: "Get info successfully",
         });
       case "1":
         return res.status(200).json({

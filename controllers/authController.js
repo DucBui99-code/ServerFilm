@@ -1,7 +1,5 @@
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
 const otpGenerator = require("otp-generator");
-const mongoose = require("mongoose");
 const uaParser = require("ua-parser-js");
 const moment = require("moment");
 
@@ -10,6 +8,7 @@ const {
   EXPIRED_TIME_OTP,
   EXPIRED_TIME_TOKEN,
   NUMBER_OTP_GENERATE,
+  DEV_URL,
 } = require("../config/CONSTANT.js");
 const filterObj = require("../utils/fillterObject");
 const mailServices = require("../services/mailer");
@@ -22,8 +21,8 @@ const options = {
   expiresIn: EXPIRED_TIME_TOKEN,
 };
 
-const signToken = (userId) =>
-  jwt.sign({ userId }, process.env.JWT_SECRET, options);
+const signToken = (userId, typeLogin) =>
+  jwt.sign({ userId, typeLogin }, process.env.JWT_SECRET, options);
 
 // Register
 exports.register = async (req, res) => {
@@ -33,7 +32,7 @@ exports.register = async (req, res) => {
 
     let userDoc = await User.findOne({ email });
 
-    if (userDoc && userDoc.verified) {
+    if (userDoc && userDoc.verified && userDoc.isCreatedByPass) {
       return res.status(409).json({
         status: false,
         message: ["Email is already in use"],
@@ -42,7 +41,7 @@ exports.register = async (req, res) => {
 
     if (userDoc) {
       userDoc.set(filteredBody);
-      await userDoc.save();
+      await userDoc.save({ new: true, validateModifiedOnly: true });
     } else {
       userDoc = await User.create(filteredBody);
     }
@@ -136,6 +135,7 @@ exports.verifyOTP = async (req, res) => {
 
     user.otp = undefined;
     user.verified = true;
+    user.isCreatedByPass = true;
 
     await user.save({
       new: true,
@@ -162,10 +162,11 @@ exports.verifyOTP = async (req, res) => {
 
 // Login
 exports.login = async (req, res) => {
+  const typeLogin = "byPass";
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email.trim() || !password.trim()) {
       return res.status(400).json({
         status: false,
         message: ["Both email and password are required"],
@@ -180,6 +181,7 @@ exports.login = async (req, res) => {
         message: ["Email or Password is incorrect"],
       });
     }
+
     if (!(await userDoc.isCorrectPassword(password, userDoc.password))) {
       return res.status(404).json({
         status: false,
@@ -187,7 +189,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    if (!userDoc.verified) {
+    if (!userDoc.verified || !userDoc.isCreatedByPass) {
       return res.status(400).json({
         status: false,
         message: ["Account has not been verified"],
@@ -208,30 +210,9 @@ exports.login = async (req, res) => {
       });
     }
 
-    const parser = new uaParser(req.headers["user-agent"]);
-    const resultInforDevice = parser.getResult();
-    const deviceId = getDeviceId(req);
+    await updateDeviceManagement(userDoc, req);
 
-    const isAlearadyExit = userDoc.deviceManagement.find((deivce) => {
-      return deivce.deviceId === deviceId;
-    });
-
-    if (!isAlearadyExit) {
-      userDoc.deviceManagement.push({
-        deviceId,
-        deviceName: resultInforDevice.device.model || "Unknown",
-        deviceType: resultInforDevice.device.type || "PC",
-        browser: resultInforDevice.browser.name || "Unknown",
-        timeDetected: moment().format("HH:mm:ss DD-MM-YYYY"),
-      });
-
-      await userDoc.save({
-        new: true,
-        validateModifiedOnly: true,
-      });
-    }
-
-    const token = signToken(userDoc._id);
+    const token = signToken(userDoc._id, typeLogin);
 
     return res.status(200).json({
       status: true,
@@ -239,6 +220,75 @@ exports.login = async (req, res) => {
       data: {
         token: token,
         userId: userDoc._id,
+        typeLogin: typeLogin,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: error.message || "Something went wrong!",
+    });
+  }
+};
+
+exports.loginWithGoogle = async (req, res) => {
+  const typeLogin = "byGoogle";
+  try {
+    const { googleId, email, avatar, username, firstLastName } = req.body;
+
+    if (!googleId || !email) {
+      return res.status(400).json({
+        status: false,
+        message: ["Google ID and email are required"],
+      });
+    }
+
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+    if (!user) {
+      user = await User.create({
+        googleId,
+        email,
+        verified: true,
+        inforAccountGoogle: {
+          avatar,
+          username,
+          firstLastName,
+        },
+      });
+    } else {
+      if (user.isDisabled) {
+        return res.status(400).json({
+          status: false,
+          message: ["Account has been disabled. Please contact admin"],
+        });
+      }
+
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.inforAccountGoogle = {
+          avatar,
+          username,
+          firstLastName,
+        };
+        await user.save({
+          new: true,
+          validateModifiedOnly: true,
+        });
+      }
+    }
+
+    const token = signToken(user._id, typeLogin);
+
+    await updateDeviceManagement(user, req);
+
+    return res.status(200).json({
+      status: true,
+      message: "Logged in successfully",
+      data: {
+        token,
+        userId: user._id,
+        loginType: typeLogin,
       },
     });
   } catch (error) {
@@ -258,7 +308,7 @@ exports.deleteAccount = async (req, res) => {
     if (!userDoc) {
       return res.status(404).json({
         status: false,
-        message: "User not found",
+        message: ["User not found"],
       });
     }
 
@@ -273,6 +323,7 @@ exports.deleteAccount = async (req, res) => {
     });
   }
 };
+
 // Logout Acount
 exports.logout = async (req, res) => {
   try {
@@ -312,13 +363,13 @@ exports.forgotPassword = async (req, res, next) => {
   if (!user) {
     return res.status(404).json({
       status: false,
-      message: ["There is no user with given email"],
+      message: ["Not found user"],
     });
   }
 
-  const resetToken = user.createPasswordResetToken();
+  const resetToken = await user.createPasswordResetToken();
 
-  const urlReset = `http://localhost:/${process.env.PORT}/auth/newPassword?code=${resetToken}`;
+  const urlReset = `${DEV_URL}/auth/newPassword/${resetToken}`;
   try {
     // Send Email
     mailServices.sendEmail({
@@ -413,6 +464,31 @@ exports.updatePassword = async (req, res, next) => {
     return res.status(500).json({
       status: false,
       message: error.message,
+    });
+  }
+};
+
+const updateDeviceManagement = async (user, req) => {
+  const parser = new uaParser(req.headers["user-agent"]);
+  const resultInforDevice = parser.getResult();
+  const deviceId = getDeviceId(req);
+
+  const isAlreadyExist = user.deviceManagement.find(
+    (device) => device.deviceId === deviceId
+  );
+
+  if (!isAlreadyExist) {
+    user.deviceManagement.push({
+      deviceId,
+      deviceName: resultInforDevice.device.model || "Unknown",
+      deviceType: resultInforDevice.device.type || "PC",
+      browser: resultInforDevice.browser.name || "Unknown",
+      timeDetected: moment().format("HH:mm:ss DD-MM-YYYY"),
+    });
+
+    await user.save({
+      new: true,
+      validateModifiedOnly: true,
     });
   }
 };

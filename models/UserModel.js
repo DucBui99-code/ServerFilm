@@ -4,9 +4,14 @@ const crypto = require("crypto");
 
 const UserSchema = new mongoose.Schema(
   {
+    googleId: { type: String, unique: true, sparse: true },
+    inforAccountGoogle: {
+      username: String,
+      firstLastName: String,
+      avatar: String,
+    },
     username: {
       type: String,
-      required: [true, "Name is required"],
       maxLength: [10, "username must be less than 10 characters"],
     },
     avatar: {
@@ -24,6 +29,7 @@ const UserSchema = new mongoose.Schema(
       type: String,
       enum: ["Male", "Female", "Ohter"],
     },
+
     phoneNumber: {
       type: String,
       validate: {
@@ -52,7 +58,6 @@ const UserSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
       minLength: [3, "Password must be greater than 3 characters"],
       maxLength: [15, "Password must be less than 15 characters"],
     },
@@ -62,7 +67,10 @@ const UserSchema = new mongoose.Schema(
     passwordResetExpires: {
       type: Date,
     },
-
+    isCreatedByPass: {
+      type: Boolean,
+      default: false,
+    },
     verified: {
       type: Boolean,
       default: false,
@@ -174,6 +182,7 @@ UserSchema.methods.isCorrectPassword = async function (
   candidatePassword,
   userPassword
 ) {
+  if (!userPassword || !candidatePassword) return false;
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
