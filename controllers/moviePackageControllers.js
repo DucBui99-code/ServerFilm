@@ -11,6 +11,7 @@ exports.createPackage = async (req, res) => {
     return res.status(400).json({
       message:
         "Duration phải là số nguyên dương và không được là số thập phân.",
+      status: false,
     });
   }
 
@@ -138,7 +139,7 @@ exports.buyPackageMonth = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: false,
-      message: ["Internal server error"],
+      message: "Internal server error",
     });
   }
 };
@@ -224,7 +225,7 @@ exports.buyMovieSingle = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: false,
-      message: ["Internal server error"],
+      message: error.message,
     });
   }
 };
@@ -241,7 +242,7 @@ exports.getTotalPackageMonthDuration = async (req, res) => {
     if (user.purchasedMoviesMonth.length === 0) {
       return res.status(400).json({
         status: false,
-        message: ["There no pack available"],
+        message: "There no pack available",
       });
     }
 
@@ -279,7 +280,7 @@ exports.getTotalPackageMonthDuration = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: false,
-      message: ["Internal server error"],
+      message: error.message,
     });
   }
 };

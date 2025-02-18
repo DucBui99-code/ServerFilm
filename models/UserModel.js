@@ -6,21 +6,38 @@ const UserSchema = new mongoose.Schema(
   {
     googleId: { type: String, unique: true, sparse: true },
     inforAccountGoogle: {
-      username: String,
-      firstLastName: String,
-      avatar: String,
+      firstName: {
+        type: String,
+        immutable: true, // Không thể sửa đổi sau khi tạo
+      },
+      lastName: {
+        type: String,
+        immutable: true, // Không thể sửa đổi sau khi tạo
+      },
+      avatar: {
+        url: {
+          type: String,
+          immutable: true, // Không thể sửa đổi sau khi tạo
+        },
+      },
     },
     username: {
       type: String,
+      unique: true,
+      sparse: true,
       maxLength: [10, "username must be less than 10 characters"],
     },
     avatar: {
       id: String,
       url: String,
     },
-    firstLastName: {
+    firstName: {
       type: String,
-      maxLength: [20, "firstLastName must be less than 20 characters"],
+      maxLength: [20, "firstName must be less than 20 characters"],
+    },
+    lastName: {
+      type: String,
+      maxLength: [20, "lastName must be less than 20 characters"],
     },
     birthDay: {
       type: String,

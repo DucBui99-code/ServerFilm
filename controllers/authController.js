@@ -9,6 +9,7 @@ const {
   EXPIRED_TIME_TOKEN,
   NUMBER_OTP_GENERATE,
   DEV_URL,
+  TYPE_LOGIN,
 } = require("../config/CONSTANT.js");
 const filterObj = require("../utils/fillterObject");
 const mailServices = require("../services/mailer");
@@ -27,29 +28,44 @@ const signToken = (userId, typeLogin) =>
 // Register
 exports.register = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, username } = req.body;
     const filteredBody = filterObj(req.body, "username", "password", "email");
 
-    let userDoc = await User.findOne({ email });
+    let userDocEmail = await User.findOne({ email: email });
+    let userDocUsername = await User.findOne({ username: username }).lean();
 
-    if (userDoc && userDoc.verified && userDoc.isCreatedByPass) {
-      return res.status(409).json({
-        status: false,
-        message: ["Email is already in use"],
-      });
+    if (userDocUsername) {
+      if (
+        userDocUsername.username === username &&
+        userDocUsername.email !== email
+      ) {
+        return res.status(410).json({
+          status: false,
+          message: "Username is already in use",
+        });
+      }
     }
 
-    if (userDoc) {
-      userDoc.set(filteredBody);
-      await userDoc.save({ new: true, validateModifiedOnly: true });
+    if (userDocEmail && userDocEmail.verified && userDocEmail.isCreatedByPass) {
+      if (userDocEmail.email === email) {
+        return res.status(409).json({
+          status: false,
+          message: "Email is already in use",
+        });
+      }
+    }
+
+    if (userDocEmail) {
+      userDocEmail.set(filteredBody);
+      await userDocEmail.save({ new: true, validateModifiedOnly: true });
     } else {
-      userDoc = await User.create(filteredBody);
+      userDocEmail = await User.create(filteredBody);
     }
 
     return res.status(200).json({
       status: true,
       message: "Register successfully",
-      userId: userDoc._id,
+      userId: userDocEmail._id,
     });
   } catch (error) {
     return res.status(500).json({
@@ -78,7 +94,7 @@ exports.sendOTP = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         status: false,
-        message: ["User does not exist"],
+        message: "User does not exist",
       });
     }
     user.otp = new_otp.toString();
@@ -116,20 +132,20 @@ exports.verifyOTP = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         status: false,
-        message: ["Email is invalid"],
+        message: "Email is invalid",
       });
     }
 
     if (new Date(user.otpExpires).getTime() < Date.now()) {
       return res.status(400).json({
         status: false,
-        message: ["OTP is expired"],
+        message: "OTP is expired",
       });
     }
     if (!(await user.correctOTP(otp, user.otp))) {
       return res.status(400).json({
         status: false,
-        message: ["OTP is incorrect"],
+        message: "OTP is incorrect",
       });
     }
 
@@ -162,14 +178,13 @@ exports.verifyOTP = async (req, res) => {
 
 // Login
 exports.login = async (req, res) => {
-  const typeLogin = "byPass";
   try {
     const { email, password } = req.body;
 
     if (!email.trim() || !password.trim()) {
       return res.status(400).json({
         status: false,
-        message: ["Both email and password are required"],
+        message: "Both email and password are required",
       });
     }
 
@@ -178,41 +193,41 @@ exports.login = async (req, res) => {
     if (!userDoc) {
       return res.status(404).json({
         status: false,
-        message: ["Email or Password is incorrect"],
+        message: "Email or Password is incorrect",
       });
     }
 
     if (!(await userDoc.isCorrectPassword(password, userDoc.password))) {
       return res.status(404).json({
         status: false,
-        message: ["Email or Password is incorrect"],
+        message: "Email or Password is incorrect",
       });
     }
 
     if (!userDoc.verified || !userDoc.isCreatedByPass) {
       return res.status(400).json({
         status: false,
-        message: ["Account has not been verified"],
+        message: "Account has not been verified",
       });
     }
 
     if (userDoc.isDisabled) {
       return res.status(400).json({
         status: false,
-        message: ["Account has been disalbe. Please contact to admin"],
+        message: "Account has been disalbe. Please contact to admin",
       });
     }
 
     if (userDoc.deviceManagement.length > LIMIT_DEVICE) {
       return res.status(400).json({
         status: false,
-        message: [`Just only allow ${LIMIT_DEVICE} login`],
+        message: `Just only allow ${LIMIT_DEVICE} login`,
       });
     }
 
     await updateDeviceManagement(userDoc, req);
 
-    const token = signToken(userDoc._id, typeLogin);
+    const token = signToken(userDoc._id, TYPE_LOGIN.byPass);
 
     return res.status(200).json({
       status: true,
@@ -220,7 +235,7 @@ exports.login = async (req, res) => {
       data: {
         token: token,
         userId: userDoc._id,
-        typeLogin: typeLogin,
+        typeLogin: TYPE_LOGIN.byPass,
       },
     });
   } catch (error) {
@@ -232,14 +247,13 @@ exports.login = async (req, res) => {
 };
 
 exports.loginWithGoogle = async (req, res) => {
-  const typeLogin = "byGoogle";
   try {
-    const { googleId, email, avatar, username, firstLastName } = req.body;
+    const { googleId, email, avatar, firstName, lastName } = req.body;
 
     if (!googleId || !email) {
       return res.status(400).json({
         status: false,
-        message: ["Google ID and email are required"],
+        message: "Google ID and email are required",
       });
     }
 
@@ -251,25 +265,29 @@ exports.loginWithGoogle = async (req, res) => {
         email,
         verified: true,
         inforAccountGoogle: {
-          avatar,
-          username,
-          firstLastName,
+          avatar: {
+            url: avatar,
+          },
+          firstName,
+          lastName,
         },
       });
     } else {
       if (user.isDisabled) {
         return res.status(400).json({
           status: false,
-          message: ["Account has been disabled. Please contact admin"],
+          message: "Account has been disabled. Please contact admin",
         });
       }
 
       if (!user.googleId) {
         user.googleId = googleId;
         user.inforAccountGoogle = {
-          avatar,
-          username,
-          firstLastName,
+          avatar: {
+            url: avatar,
+          },
+          firstName,
+          lastName,
         };
         await user.save({
           new: true,
@@ -278,7 +296,7 @@ exports.loginWithGoogle = async (req, res) => {
       }
     }
 
-    const token = signToken(user._id, typeLogin);
+    const token = signToken(user._id, TYPE_LOGIN.byGoogle);
 
     await updateDeviceManagement(user, req);
 
@@ -288,7 +306,7 @@ exports.loginWithGoogle = async (req, res) => {
       data: {
         token,
         userId: user._id,
-        loginType: typeLogin,
+        loginType: TYPE_LOGIN.byGoogle,
       },
     });
   } catch (error) {
@@ -308,7 +326,7 @@ exports.deleteAccount = async (req, res) => {
     if (!userDoc) {
       return res.status(404).json({
         status: false,
-        message: ["User not found"],
+        message: "User not found",
       });
     }
 
@@ -331,7 +349,8 @@ exports.logout = async (req, res) => {
     const deviceId = getDeviceId(req);
 
     const userDoc = await User.findById(userId);
-    if (!userDoc) return res.status(404).json({ message: "Not found user" });
+    if (!userDoc)
+      return res.status(404).json({ message: "Not found user", status: false });
 
     // Xóa session của thiết bị hiện tại
     userDoc.deviceManagement = userDoc.deviceManagement.filter(
@@ -360,10 +379,10 @@ exports.forgotPassword = async (req, res, next) => {
 
   const user = await User.findOne({ email: email });
 
-  if (!user) {
+  if (!user || !user.isCreatedByPass) {
     return res.status(404).json({
       status: false,
-      message: ["Not found user"],
+      message: "Not found user",
     });
   }
 
@@ -392,7 +411,7 @@ exports.forgotPassword = async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
     return res.status(500).json({
       status: false,
-      message: ["There was an error sending the email, Please try again later"],
+      message: "There was an error sending the email, Please try again later",
     });
   }
 };
@@ -412,7 +431,7 @@ exports.resetPassword = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({
         status: false,
-        message: ["Token is Invalid or Expired"],
+        message: "Token is Invalid or Expired",
       });
     }
     user.password = password;
@@ -426,13 +445,9 @@ exports.resetPassword = async (req, res, next) => {
       message: "Password Rested Successfully",
     });
   } catch (error) {
-    let errors = [];
-    for (const property in error.errors) {
-      errors.push(`${error.errors[property]}`);
-    }
     return res.status(500).json({
       status: false,
-      message: errors,
+      message: error,
     });
   }
 };
@@ -448,7 +463,7 @@ exports.updatePassword = async (req, res, next) => {
     if (!(await user.isCorrectPassword(currentPassword, user.password))) {
       return res.status(400).json({
         status: false,
-        message: ["Current password is incorrect"],
+        message: "Current password is incorrect",
       });
     }
 

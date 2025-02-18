@@ -50,6 +50,45 @@ const detailMovieSchema = new mongoose.Schema({
   modified: {
     time: { type: Date },
   },
+  comments: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Users",
+        required: true,
+      },
+      content: { type: String, required: true },
+      likes: { type: Number, default: 0 },
+      disLikes: { type: Number, default: 0 },
+      time: { type: Date, default: Date.now },
+      edited: {
+        type: Boolean,
+        deafault: false,
+      },
+      replies: [
+        {
+          user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Users",
+            required: true,
+          },
+          content: { type: String, required: true },
+          likes: { type: Number, default: 0 },
+          disLikes: { type: Number, default: 0 },
+          time: { type: Date, default: Date.now },
+          edited: {
+            type: Boolean,
+            deafault: false,
+          },
+          replyTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Users",
+            required: false,
+          },
+        },
+      ],
+    },
+  ],
 });
 
 const DetailMovie = mongoose.model("DetailMovie", detailMovieSchema);

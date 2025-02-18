@@ -93,7 +93,7 @@ exports.getMovieBySlug = async (req, res) => {
     if (!slug?.trim()) {
       return res.status(400).json({
         status: false,
-        message: ["Invalid Slug"],
+        message: "Invalid Slug",
       });
     }
 
@@ -103,7 +103,7 @@ exports.getMovieBySlug = async (req, res) => {
       return res.status(404).json({
         status: false,
         data: { movie: null, episodes: [] },
-        message: ["Movie not found"],
+        message: "Movie not found",
       });
     }
 
@@ -135,7 +135,7 @@ exports.getDetailMovieEpisode = async (req, res) => {
     const dataDetailMovie = await DetailMovie.findById(movieId).lean();
     if (!dataDetailMovie) {
       return res.status(404).json({
-        message: ["Detail movie not found"],
+        message: "Detail movie not found",
         status: false,
       });
     }
@@ -145,7 +145,7 @@ exports.getDetailMovieEpisode = async (req, res) => {
 
     if (!dataEpisodes) {
       return res.status(404).json({
-        message: ["Index Episode not found"],
+        message: "Index Episode not found",
         status: false,
       });
     }
@@ -153,7 +153,7 @@ exports.getDetailMovieEpisode = async (req, res) => {
     if (dataDetailMovie.__t === "DetailMovieRent") {
       if (!userId) {
         return res.status(404).json({
-          message: ["Please login to watch"],
+          message: "Please login to watch",
           status: false,
         });
       }
@@ -164,13 +164,13 @@ exports.getDetailMovieEpisode = async (req, res) => {
         checkRentExpiration(user, dataDetailMovie._id)
       ) {
         return res.status(404).json({
-          message: ["Please rent this movie"],
+          message: "Please rent this movie",
           status: false,
         });
       }
       if (dataDetailMovie.isBuyByMonth && checkPackMonthExpiration(user)) {
         return res.status(404).json({
-          message: ["Please buy package"],
+          message: "Please buy package",
           status: false,
         });
       }

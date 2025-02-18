@@ -4,6 +4,10 @@ const EXPIRED_TIME_TOKEN = "1h";
 const NUMBER_OTP_GENERATE = 6;
 const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
 const DEV_URL = "http://localhost:3000";
+const TYPE_LOGIN = {
+  byGoogle: "byGoogle",
+  byPass: "byPass",
+};
 
 module.exports = {
   EXPIRED_TIME_OTP,
@@ -12,4 +16,5 @@ module.exports = {
   NUMBER_OTP_GENERATE,
   PATH_IMAGE,
   DEV_URL,
+  TYPE_LOGIN,
 };

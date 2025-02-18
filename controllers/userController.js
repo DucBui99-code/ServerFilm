@@ -1,7 +1,8 @@
 const User = require("../models/UserModel");
+const cloudinary = require("cloudinary").v2;
 const { DetailMovie } = require("../models/DetailMovieModel");
 const moment = require("moment");
-const { PATH_IMAGE } = require("../config/CONSTANT");
+const { PATH_IMAGE, TYPE_LOGIN } = require("../config/CONSTANT");
 
 // Get Profile
 exports.getProfile = async (req, res) => {
@@ -15,26 +16,31 @@ exports.getProfile = async (req, res) => {
       case "0":
         const getUserInfoByGoogle = (user) => ({
           avatar: user.inforAccountGoogle.avatar,
-          email: user.inforAccountGoogle.email,
-          firstLastName: user.inforAccountGoogle.firstLastName,
-          username: user.inforAccountGoogle.username,
+          email: user.email,
+          firstName: user.inforAccountGoogle.firstName,
+          lastName: user.inforAccountGoogle.lastName,
+          birthDay: user.birthDay,
+          sex: user.sex,
+          username: user.username,
+          phoneNumber: user.phoneNumber,
         });
 
         const getUserInfoByPass = (user) => ({
           avatar: user.avatar,
           email: user.email,
-          firstLastName: user.firstLastName,
-          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
           birthDay: user.birthDay,
           sex: user.sex,
+          username: user.username,
           phoneNumber: user.phoneNumber,
         });
 
         let dataInforAcc = {};
 
-        if (typeLogin === "byGoogle") {
+        if (typeLogin === TYPE_LOGIN.byGoogle) {
           dataInforAcc = getUserInfoByGoogle(user);
-        } else if (typeLogin === "byPass") {
+        } else if (typeLogin === TYPE_LOGIN.byPass) {
           dataInforAcc = getUserInfoByPass(user);
         } else {
           return res.status(400).json({
@@ -110,13 +116,13 @@ exports.getProfile = async (req, res) => {
       default:
         return res.status(400).json({
           status: false,
-          message: ["Invalid Type"],
+          message: "Invalid Type",
         });
     }
   } catch (error) {
     return res.status(500).json({
       status: false,
-      message: ["Internal server error", error.message],
+      message: error.message,
     });
   }
 };
@@ -124,13 +130,21 @@ exports.getProfile = async (req, res) => {
 // Update user information
 exports.updateInformation = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const { username, firstLastName, phoneNumber, birthDay, sex } = req.body;
+    const { userId, typeLogin } = req.user;
+    const { username, firstName, lastName, phoneNumber, birthDay, sex } =
+      req.body;
 
-    if (!username && !firstLastName && !phoneNumber && !birthDay && !sex) {
+    if (
+      !username &&
+      !lastName &&
+      !firstName &&
+      !phoneNumber &&
+      !birthDay &&
+      !sex
+    ) {
       return res.status(400).json({
         status: false,
-        message: ["Not found information to update"],
+        message: "Not found information to update",
       });
     }
 
@@ -141,34 +155,48 @@ exports.updateInformation = async (req, res) => {
       if (checkPhoneNumber) {
         return res.status(429).json({
           status: false,
-          message: ["Phone number is already exit"],
+          message: "Phone number is already exit",
         });
       }
+
       user.phoneNumber = phoneNumber.trim();
     }
+
     // Kiểm tra định dạng birthDay
     if (birthDay) {
-      if (!moment(birthDay, "DD/MM/YYYY", true).isValid()) {
+      if (!moment(birthDay, "MM/DD/YYYY", true).isValid()) {
         return res.status(400).json({
           status: false,
-          message: ["Invalid birthDay format. Use DD/MM/YYYY"],
+          message: "Invalid birthDay format. Use MM/DD/YYYY",
         });
       }
 
       // Kiểm tra birthDay không nằm trong tương lai
-      if (moment(birthDay, "DD/MM/YYYY").isAfter(moment())) {
+      if (moment(birthDay, "MM/DD/YYYY").isAfter(moment())) {
         return res.status(400).json({
           status: false,
-          message: ["BirthDay cannot be in the future"],
+          message: "BirthDay cannot be in the future",
         });
       }
 
-      user.birthDay = birthDay;
+      user.birthDay = birthDay.trim();
     }
 
-    // Cập nhật các trường còn lại nếu có
-    if (username) user.username = username.trim();
-    if (firstLastName) user.firstLastName = firstLastName.trim();
+    if (typeLogin === TYPE_LOGIN.byPass) {
+      // Cập nhật các trường còn lại nếu có
+      if (lastName) user.lastName = lastName.trim();
+      if (firstName) user.firstName = firstName.trim();
+    }
+    if (username) {
+      const findUserByUsername = await User.findOne({ username: username });
+      if (findUserByUsername) {
+        return res.status(429).json({
+          status: false,
+          message: "Username is already exits",
+        });
+      }
+      user.username = username.trim();
+    }
     if (sex) user.sex = sex;
 
     await user.save({ validateModifiedOnly: true });
@@ -180,7 +208,7 @@ exports.updateInformation = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: false,
-      message: ["Internal server error", error.message],
+      message: error.message,
     });
   }
 };
@@ -232,7 +260,7 @@ exports.upLoadAvatar = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: false,
-      message: ["Internal server error", error.message],
+      message: error.message,
     });
   }
 };
@@ -245,7 +273,7 @@ exports.toggleFavoriteMovie = async (req, res) => {
 
     if (!["add", "remove"].includes(action)) {
       return res.status(400).json({
-        message: ["Invalid action. Use 'add' or 'remove'"],
+        message: "Invalid action. Use 'add' or 'remove'",
         status: false,
       });
     }
@@ -253,7 +281,7 @@ exports.toggleFavoriteMovie = async (req, res) => {
     const movie = await DetailMovie.findById(movieId);
     if (!movie) {
       return res.status(404).json({
-        message: ["Movie not found"],
+        message: "Movie not found",
         status: false,
       });
     }
@@ -267,7 +295,7 @@ exports.toggleFavoriteMovie = async (req, res) => {
     if (action === "add") {
       if (index !== -1) {
         return res.status(400).json({
-          message: ["Movie has already been added to favorites list"],
+          message: "Movie has already been added to favorites list",
           status: false,
         });
       }
@@ -275,7 +303,7 @@ exports.toggleFavoriteMovie = async (req, res) => {
     } else if (action === "remove") {
       if (index === -1) {
         return res.status(400).json({
-          message: ["Movie is not in favorites list"],
+          message: "Movie is not in favorites list",
           status: false,
         });
       }
@@ -309,7 +337,7 @@ exports.removeDeviceManagement = async (req, res) => {
 
     if (deviceIndex === -1) {
       return res.status(404).json({
-        message: ["Device not found"],
+        message: "Device not found",
         status: false,
       });
     }
@@ -321,6 +349,216 @@ exports.removeDeviceManagement = async (req, res) => {
     return res.status(200).json({
       status: true,
       message: "Device removed successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message, status: false });
+  }
+};
+
+// Comment Movie
+exports.commentMovie = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { content, movieId } = req.body;
+
+    if (!movieId || !content || !content.trim()) {
+      return res
+        .status(400)
+        .json({ message: "movieId and content are required", status: false });
+    }
+
+    const detailMovie = await DetailMovie.findById(movieId);
+    if (!detailMovie) {
+      return res
+        .status(404)
+        .json({ message: "Not found detailMovie", status: false });
+    }
+
+    const commentMovie = {
+      user: userId,
+      content,
+      time: new Date().toISOString(),
+      edited: false,
+      likes: 0,
+      disLikes: 0,
+      replies: [],
+    };
+
+    detailMovie.comments.push(commentMovie);
+    await detailMovie.save({ validateModifiedOnly: true });
+    return res
+      .status(201)
+      .json({ message: "Comment added successfully", status: true });
+  } catch (error) {
+    return res.status(500).json({ message: error.message, status: false });
+  }
+};
+
+exports.editCommentMovie = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { movieId, content, commentId } = req.body;
+    if (!movieId || !content || !content.trim()) {
+      return res
+        .status(400)
+        .json({ message: "movieId and content are required", status: false });
+    }
+
+    const detailMovie = await DetailMovie.findById(movieId);
+
+    if (!detailMovie) {
+      return res
+        .status(404)
+        .json({ message: "Not found detailMovie", status: false });
+    }
+
+    const indexCommentById = detailMovie.comments.findIndex(
+      (comment) => comment._id.toString() === commentId.toString()
+    );
+
+    if (indexCommentById < 0) {
+      return res
+        .status(404)
+        .json({ message: "Not found comment to edit", status: false });
+    }
+
+    const commentMovie = detailMovie.comments[indexCommentById];
+
+    if (commentMovie.user.toString() !== userId.toString()) {
+      return res
+        .status(400)
+        .json({ message: "This is not your comment", status: false });
+    }
+
+    detailMovie.comments[indexCommentById].content = content;
+    detailMovie.comments[indexCommentById].time = Date.now();
+    detailMovie.comments[indexCommentById].edited = true;
+
+    await detailMovie.save({ validateModifiedOnly: true });
+    return res
+      .status(200)
+      .json({ message: "Edit comment successfully", status: true });
+  } catch (error) {
+    return res.status(500).json({ message: error.message, status: false });
+  }
+};
+
+exports.deleteCommentMovie = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { movieId, commentId } = req.body;
+
+    if (!movieId || !commentId) {
+      return res.status(400).json({
+        message: "movieId and commentId are required",
+        status: false,
+      });
+    }
+
+    const detailMovie = await DetailMovie.findById(movieId);
+
+    if (!detailMovie) {
+      return res
+        .status(404)
+        .json({ message: "Not found detailMovie", status: false });
+    }
+
+    const indexCommentById = detailMovie.comments.findIndex(
+      (comment) => comment._id.toString() === commentId.toString()
+    );
+
+    if (indexCommentById < 0) {
+      return res
+        .status(404)
+        .json({ message: "Not found comment to delete", status: false });
+    }
+
+    const commentMovie = detailMovie.comments[indexCommentById];
+
+    if (commentMovie.user.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "This is not your comment", status: false });
+    }
+
+    // Xóa comment khỏi mảng comments
+    detailMovie.comments.splice(indexCommentById, 1);
+
+    await detailMovie.save({ validateModifiedOnly: true });
+
+    return res
+      .status(200)
+      .json({ message: "Delete comment successfully", status: true });
+  } catch (error) {
+    return res.status(500).json({ message: error.message, status: false });
+  }
+};
+
+exports.replyComment = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { movieId, commentId, content, replyTo } = req.body;
+
+    if (!movieId || !commentId || !content || !content.trim()) {
+      return res.status(400).json({
+        message: "movieId, commentId, and content are required",
+        status: false,
+      });
+    }
+
+    const detailMovie = await DetailMovie.findById(movieId);
+    if (!detailMovie) {
+      return res
+        .status(404)
+        .json({ message: "Not found detailMovie", status: false });
+    }
+
+    // Tìm comment gốc
+    const comment = detailMovie.comments.find(
+      (comment) => comment._id.toString() === commentId.toString()
+    );
+
+    if (!comment) {
+      return res
+        .status(404)
+        .json({ message: "Not found comment to reply", status: false });
+    }
+
+    // Tạo reply mới
+    const newReply = {
+      content,
+      user: userId,
+      time: Date.now(),
+      edited: false,
+      likes: 0,
+      disLikes: 0,
+    };
+
+    // Nếu có `replyTo`, kiểm tra xem `replyTo` có tồn tại trong `replies[]` không
+    if (replyTo) {
+      const replyToData = comment.replies.find(
+        (reply) => reply._id.toString() === replyTo.toString()
+      );
+
+      if (
+        replyToData &&
+        replyToData.user.toString() !== userId.toString() &&
+        replyToData.user.toString() !== comment.user.toString()
+      ) {
+        newReply.replyTo = replyToData.user; // Chỉ gán nếu `replyTo` hợp lệ
+      }
+    }
+
+    // Thêm vào danh sách `replies`
+    comment.replies.push(newReply);
+
+    // Lưu lại thay đổi
+    await detailMovie.save({ validateModifiedOnly: true });
+
+    return res.status(201).json({
+      message: "Reply added successfully",
+      status: true,
+      reply: newReply, // Trả về reply mới để frontend cập nhật
     });
   } catch (error) {
     return res.status(500).json({ message: error.message, status: false });
