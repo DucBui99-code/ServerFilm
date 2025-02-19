@@ -61,6 +61,12 @@ exports.getProfile = async (req, res) => {
           message: "Get history purchase successfully",
         });
       case "2":
+        user.purchasedMoviesMonth = user.purchasedMoviesMonth.map((movie) => ({
+          ...movie,
+          isExpired: moment().isAfter(
+            moment(movie.exprationDate, "DD/MM/YYYY")
+          ),
+        }));
         return res.status(200).json({
           status: true,
           data: user.purchasedMoviesMonth,
@@ -71,7 +77,7 @@ exports.getProfile = async (req, res) => {
           user.favoriteMovies.map(async (movie) => {
             const movieDetailDB = await DetailMovie.findById(movie.movieId)
               .select(
-                "name slug origin_name thumb_url poster_url year episode_current quality"
+                "name slug origin_name thumb_url poster_url year episode_current quality __t tmdb quality"
               )
               .lean();
 
@@ -92,11 +98,18 @@ exports.getProfile = async (req, res) => {
         const dataMovieRent = await Promise.all(
           user.purchasedMoviesRent.map(async (movie) => {
             const movieDetailDB = await DetailMovie.findById(movie.movieId)
-              .select("name origin_name thumb_url poster_url price duration")
+              .select(
+                "name origin_name thumb_url poster_url price duration slug"
+              )
               .lean();
 
             return {
               _id: movie._id,
+              purchaseDate: movie.purchaseDate,
+              exprationDate: movie.exprationDate,
+              isExpired: moment().isAfter(
+                moment(movie.exprationDate, "DD/MM/YYYY")
+              ),
               ...(movieDetailDB || {}),
             };
           })

@@ -22,7 +22,7 @@ router.post(
 );
 
 router.post(
-  "/remmoveDeivce",
+  "/removeDevice",
   authMiddleware,
   userController.removeDeviceManagement
 );
