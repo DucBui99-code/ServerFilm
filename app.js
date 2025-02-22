@@ -13,6 +13,9 @@ connectDB();
 
 const app = express();
 app.use(express.json());
+// app.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+
+app.set("trust proxy", 1);
 
 app.use(
   cors({
@@ -24,8 +27,8 @@ app.use(
 
 app.use(requestLogger);
 app.use(rateLimiter);
-app.use(errorHandler);
 
 app.use("/v1/MovieApp", require("./routes/index"));
 
+app.use(errorHandler);
 module.exports = app;

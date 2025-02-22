@@ -17,6 +17,7 @@ const User = require("../models/UserModel.js");
 const resetPassword = require("../templates/Mail/resetPassword.js");
 const otp = require("../templates/Mail/otp");
 const { getDeviceId } = require("../services/getDeviceId.js");
+const throwError = require("../utils/throwError.js");
 
 const options = {
   expiresIn: EXPIRED_TIME_TOKEN,
@@ -177,15 +178,12 @@ exports.verifyOTP = async (req, res) => {
 };
 
 // Login
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     if (!email.trim() || !password.trim()) {
-      return res.status(400).json({
-        status: false,
-        message: "Both email and password are required",
-      });
+      throwError("Both email and password are required");
     }
 
     const userDoc = await User.findOne({ email: email }).select("+password");
@@ -239,10 +237,7 @@ exports.login = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Something went wrong!",
-    });
+    next(error);
   }
 };
 

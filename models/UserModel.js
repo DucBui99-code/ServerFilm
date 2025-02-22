@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { type } = require("os");
 
 const UserSchema = new mongoose.Schema(
   {
@@ -134,7 +135,13 @@ const UserSchema = new mongoose.Schema(
         purchaseDate: String,
         status: {
           type: String,
-          enum: ["success", "fault", "pending"],
+          enum: ["pending", "completed", "failed"],
+          default: "pending",
+        },
+        transactionId: String,
+        packageType: {
+          type: String,
+          emun: ["packageMonth", "packageRent"],
         },
       },
     ],

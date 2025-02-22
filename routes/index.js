@@ -10,6 +10,6 @@ router.use("/auth", authRoute);
 router.use("/user", userRoute);
 router.use("/movie", movieRoute);
 router.use("/payment", moviePackPaymentRoute);
-router.use("/webhook", paymentRoute);
+router.use("/bill", paymentRoute);
 
 module.exports = router;

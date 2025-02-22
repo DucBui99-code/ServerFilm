@@ -57,7 +57,7 @@ exports.getProfile = async (req, res) => {
       case "1":
         return res.status(200).json({
           status: true,
-          data: user.purchasedHistory,
+          data: user.purchasedHistory.reverse(),
           message: "Get history purchase successfully",
         });
       case "2":
