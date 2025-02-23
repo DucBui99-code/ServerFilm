@@ -33,13 +33,11 @@ exports.CreateBillService = async (
   pricePackage,
   transID,
   paymentMethod,
-  packageTypeBill,
   packageId,
   packageTypeUser,
+  transactionId,
   next
 ) => {
-  const transaction_id = `${moment().format("YYMMDD")}_${transID}`;
-
   const userDb = await User.findById(userId);
 
   // 🚀 2. Tạo đơn hàng ZaloPay
@@ -47,7 +45,7 @@ exports.CreateBillService = async (
   const items = [{}];
   const order = {
     app_id: config.app_id,
-    app_trans_id: transaction_id,
+    app_trans_id: transactionId,
     app_user: userId.toString(),
     app_time: Date.now(),
     expire_duration_seconds: EXPIRED_TIME_ORDER,
@@ -87,13 +85,12 @@ exports.CreateBillService = async (
     // 📌 1. Tạo bill với trạng thái pending
     const newBill = new Bill({
       userId,
-      packageType: packageTypeBill,
       packageName: namePackage,
       quantity: 1,
       packageId,
       totalAmount: pricePackage,
       paymentMethod,
-      transactionId: transaction_id,
+      transactionId: transactionId,
       orderStatus: "processing",
     });
 
@@ -101,13 +98,12 @@ exports.CreateBillService = async (
       name: namePackage,
       price: pricePackage,
       purchaseDate: moment().format("DD/MM/YYYY HH:mm:ss"),
-      transactionId: transaction_id,
+      transactionId: transactionId,
       packageType: packageTypeUser,
     });
 
-    await userDb.save({ validateModifiedOnly: true });
-
     await newBill.save();
+    await userDb.save({ validateModifiedOnly: true });
 
     return result;
   } catch (error) {
@@ -199,25 +195,27 @@ exports.CheckBillService = async (userId, transactionId, next) => {
     if (!billDb) {
       throwError("Bill not found");
     }
-
     switch (result.data.return_code) {
       // Thành công
       case 1:
-        return res.status(200).json({
-          message: result.data.return_message,
-          status: true,
-          return_code: result.data.return_code,
-        });
+        await this.UpdateStatusBillService(userDb, billDb, "completed", next);
+        break;
       // Thất bại
       case 2:
         await this.UpdateStatusBillService(userDb, billDb, "failed", next);
-        throwError(result.data.return_message, 400, result.data.return_code);
+        break;
       // Đơn hàng chưa thanh toán hoặc giao dịch đang xử lý
       case 3:
-        throwError(result.data.return_message, 400, result.data.return_code);
+        break;
       default:
-        throwError("Not foudn return_code", 400, result.data.return_code);
+        throwError("Not found return_code", 400);
     }
+    return {
+      message: result.data.return_message,
+      status: true,
+      return_code: result.data.return_code,
+      packageName: billDb.packageName,
+    };
   } catch (error) {
     next(error);
   }

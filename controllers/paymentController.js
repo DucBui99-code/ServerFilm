@@ -60,13 +60,10 @@ exports.createBillPackMonth = async (req, res, next) => {
       throwError("Package not found");
     }
 
-    const packageTypeBill = `${packageData.duration}_month${
-      packageData.duration > 1 ? "s" : ""
-    }`;
-
     const namePackage = packageData.name;
     const pricePackage = packageData.price;
     const transID = Math.floor(Math.random() * 1000000);
+    const transactionId = `${moment().format("YYMMDD")}_${transID}`;
 
     const resBill = await CreateBillService(
       userId,
@@ -74,16 +71,19 @@ exports.createBillPackMonth = async (req, res, next) => {
       pricePackage,
       transID,
       paymentMethod,
-      packageTypeBill,
       packageId,
       "packageMonth",
+      transactionId,
       next
     );
 
     return res.status(200).json({
       status: true,
       message: "Created order successfully",
-      data: resBill.data,
+      data: {
+        billData: resBill.data,
+        transactionId,
+      },
     });
   } catch (error) {
     next(error);
@@ -129,6 +129,7 @@ exports.createBillPackRent = async (req, res, next) => {
     const namePackage = dataMovie.name;
     const pricePackage = dataMovie.price;
     const transID = Math.floor(Math.random() * 1000000);
+    const transactionId = `${moment().format("YYMMDD")}_${transID}`;
 
     const resBill = await CreateBillService(
       userId,
@@ -136,16 +137,19 @@ exports.createBillPackRent = async (req, res, next) => {
       pricePackage,
       transID,
       paymentMethod,
-      "movie_rental",
       packageId,
       "packageRent",
+      transactionId,
       next
     );
 
     return res.status(200).json({
       status: true,
       message: "Created order successfully",
-      data: resBill.data,
+      data: {
+        billData: resBill.data,
+        transactionId,
+      },
     });
   } catch (error) {
     next(error);
@@ -165,7 +169,17 @@ exports.checkBill = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const { transactionId } = req.body;
-    await CheckBillService(userId, transactionId, next);
+    const resCheckBill = await CheckBillService(
+      userId,
+      transactionId,
+      res,
+      next
+    );
+    return res.status(200).json({
+      status: true,
+      message: "Created order successfully",
+      data: { ...resCheckBill },
+    });
   } catch (error) {
     next(error);
   }

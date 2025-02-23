@@ -8,11 +8,6 @@ const billSchema = new mongoose.Schema(
       ref: "Users",
       required: true,
     },
-    packageType: {
-      type: String,
-      enum: ["1_month", "3_months", "6_months", "movie_rental"],
-      required: true,
-    },
     packageId: { type: String, required: true },
     packageName: { type: String, required: true },
     quantity: { type: Number, required: true, default: 1 },
