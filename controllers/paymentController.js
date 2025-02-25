@@ -169,12 +169,7 @@ exports.checkBill = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const { transactionId } = req.body;
-    const resCheckBill = await CheckBillService(
-      userId,
-      transactionId,
-      res,
-      next
-    );
+    const resCheckBill = await CheckBillService(userId, transactionId, next);
     return res.status(200).json({
       status: true,
       message: "Created order successfully",

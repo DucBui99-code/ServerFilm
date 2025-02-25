@@ -91,6 +91,7 @@ exports.CreateBillService = async (
       totalAmount: pricePackage,
       paymentMethod,
       transactionId: transactionId,
+      packageType: packageTypeUser,
       orderStatus: "processing",
     });
 
@@ -137,9 +138,9 @@ exports.ResultBillFromZaloService = async (dataStr, reqMac, next) => {
 
   await this.UpdateStatusBillService(userDb, billDb, "completed", next);
 
-  if (billDb.packageType !== "movie_rental") {
+  if (billDb.packageType === "packageMonth") {
     await ApplyPackMonth(userDb, billDb.packageId, next);
-  } else {
+  } else if (billDb.packageType === "packageRent") {
     await ApplyPackRent(userDb, billDb.packageId, next);
   }
 };
@@ -169,11 +170,10 @@ exports.UpdateStatusBillService = async (userDb, billDb, status, next) => {
 exports.CheckBillService = async (userId, transactionId, next) => {
   let postData = {
     app_id: config.app_id,
-    app_trans_id: transactionId, // Input your app_trans_id
+    app_trans_id: transactionId, // Mã giao dịch
   };
 
   let data = postData.app_id + "|" + postData.app_trans_id + "|" + config.key1;
-
   postData.mac = CryptoJS.HmacSHA256(data, config.key1).toString();
 
   let postConfig = {
@@ -188,28 +188,48 @@ exports.CheckBillService = async (userId, transactionId, next) => {
   try {
     const result = await axios(postConfig);
     const userDb = await User.findById(userId);
-    const billDb = await Bill.findOne({
-      transactionId: transactionId,
-    });
+    const billDb = await Bill.findOne({ transactionId: transactionId });
 
     if (!billDb) {
       throwError("Bill not found");
     }
+
+    // Nếu gói đã được áp dụng trước đó, không xử lý lại
+    if (billDb.isApplied) {
+      return {
+        message: "Package is already update",
+        status: true,
+        return_code: result.data.return_code,
+        packageName: billDb.packageName,
+      };
+    }
+
     switch (result.data.return_code) {
-      // Thành công
-      case 1:
+      case 1: // Thanh toán thành công
         await this.UpdateStatusBillService(userDb, billDb, "completed", next);
+
+        if (billDb.packageType === "packageMonth") {
+          await ApplyPackMonth(userDb, billDb.packageId, next);
+        } else if (billDb.packageType === "packageRent") {
+          await ApplyPackRent(userDb, billDb.packageId, next);
+        }
+
+        // Đánh dấu đã áp dụng để tránh chạy nhiều lần
+        billDb.isApplied = true;
+        await billDb.save();
         break;
-      // Thất bại
-      case 2:
+
+      case 2: // Thanh toán thất bại
         await this.UpdateStatusBillService(userDb, billDb, "failed", next);
         break;
-      // Đơn hàng chưa thanh toán hoặc giao dịch đang xử lý
-      case 3:
+
+      case 3: // Đơn hàng chưa thanh toán hoặc đang xử lý
         break;
+
       default:
-        throwError("Not found return_code", 400);
+        throwError("Không tìm thấy mã return_code", 400);
     }
+
     return {
       message: result.data.return_message,
       status: true,
@@ -360,7 +380,7 @@ const ApplyPackRent = async (dataUser, movieId, next) => {
     );
 
     const purchaseDate = moment().format("DD/MM/YYYY");
-    const expirationDate = moment()
+    const exprationDate = moment()
       .add(dataMovie.duration, "days")
       .format("DD/MM/YYYY");
 
@@ -369,13 +389,13 @@ const ApplyPackRent = async (dataUser, movieId, next) => {
       dataUser.purchasedMoviesRent[existingRentIndex].purchaseDate =
         purchaseDate;
       dataUser.purchasedMoviesRent[existingRentIndex].exprationDate =
-        expirationDate;
+        exprationDate;
     } else {
       // Gói chưa tồn tại -> thêm mới
       dataUser.purchasedMoviesRent.push({
         movieId,
         purchaseDate,
-        exprationDate: expirationDate,
+        exprationDate: exprationDate,
       });
     }
 

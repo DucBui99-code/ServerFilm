@@ -78,46 +78,35 @@ exports.getTotalPackageMonthDuration = async (req, res) => {
     const { userId } = req.user;
     const user = await User.findById(userId).lean();
 
-    const now = moment();
-    let totalDuration = moment.duration(0);
-    let maxExpirationDate = null;
-
-    if (user.purchasedMoviesMonth.length === 0) {
+    if (!user || user.purchasedMoviesMonth.length === 0) {
       return res.status(400).json({
         status: false,
-        message: "There no pack available",
+        message: "There is no active package",
       });
     }
 
+    const now = moment();
+    let totalMonths = 0;
+
+    // Lặp qua tất cả các gói và cộng tổng thời gian hợp lệ
     user.purchasedMoviesMonth.forEach((pkg) => {
       const expiration = moment(pkg.exprationDate, "DD/MM/YYYY");
       if (expiration.isAfter(now)) {
-        totalDuration.add(moment.duration(expiration.diff(now)));
-      }
-      if (!maxExpirationDate || expiration.isAfter(maxExpirationDate)) {
-        maxExpirationDate = expiration;
+        const durationMonths = expiration.diff(now, "months", true);
+        totalMonths += durationMonths;
       }
     });
 
-    const isExpired = maxExpirationDate
-      ? maxExpirationDate.isBefore(now)
-      : true;
-
-    const hours = totalDuration.hours();
-    const minutes = totalDuration.minutes();
-    const seconds = totalDuration.seconds();
+    // Tính ngày hết hạn mới bằng cách cộng tổng số tháng vào ngày hiện tại
+    const newExpirationDate = now.add(totalMonths, "months");
 
     return res.status(200).json({
       status: true,
       message: "Get total package month success",
       data: {
-        timeRemaining: `${String(hours).padStart(2, "0")}:${String(
-          minutes
-        ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
-        expirationDate: maxExpirationDate
-          ? maxExpirationDate.format("DD/MM/YYYY")
-          : null,
-        isExpired,
+        totalMonths: Math.ceil(totalMonths), // Tổng số tháng còn lại
+        expirationDate: newExpirationDate.format("DD/MM/YYYY"), // Ngày hết hạn chính xác
+        isExpired: newExpirationDate.isBefore(now),
       },
     });
   } catch (error) {

@@ -12,6 +12,8 @@ const TYPE_LOGIN = {
 const URL_CHECK_BILL = "https://sb-openapi.zalopay.vn/v2/query";
 const URL_CREATE_BILL = "https://sb-openapi.zalopay.vn/v2/create";
 const PAYMENT_METHODS = ["ZaloPay", "MoMo", "ATMCard"];
+const PACKAGE_TYPE = ["packageMonth", "packageRent"];
+const STATUS = ["pending", "completed", "failed"];
 
 module.exports = {
   EXPIRED_TIME_OTP,
@@ -25,4 +27,6 @@ module.exports = {
   URL_CREATE_BILL,
   URL_CHECK_BILL,
   PAYMENT_METHODS,
+  PACKAGE_TYPE,
+  STATUS,
 };

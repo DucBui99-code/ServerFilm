@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { PAYMENT_METHODS } = require("../config/CONSTANT");
+const { PAYMENT_METHODS, PACKAGE_TYPE, STATUS } = require("../config/CONSTANT");
 
 const billSchema = new mongoose.Schema(
   {
@@ -10,6 +10,11 @@ const billSchema = new mongoose.Schema(
     },
     packageId: { type: String, required: true },
     packageName: { type: String, required: true },
+    packageType: {
+      type: String,
+      emun: PACKAGE_TYPE,
+    },
+    isApplied: { type: Boolean },
     quantity: { type: Number, required: true, default: 1 },
     totalAmount: { type: Number, required: true },
     paymentMethod: {
@@ -19,7 +24,7 @@ const billSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "completed", "failed"],
+      enum: STATUS,
       default: "pending",
     },
     transactionId: { type: String },
