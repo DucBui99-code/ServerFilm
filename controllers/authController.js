@@ -27,7 +27,7 @@ const signToken = (userId, typeLogin) =>
   jwt.sign({ userId, typeLogin }, process.env.JWT_SECRET, options);
 
 // Register
-exports.register = async (req, res) => {
+exports.register = async (req, res, next) => {
   try {
     const { email, username } = req.body;
     const filteredBody = filterObj(req.body, "username", "password", "email");
@@ -40,19 +40,13 @@ exports.register = async (req, res) => {
         userDocUsername.username === username &&
         userDocUsername.email !== email
       ) {
-        return res.status(410).json({
-          status: false,
-          message: "Username is already in use",
-        });
+        throwError("Username is already in use", 410);
       }
     }
 
     if (userDocEmail && userDocEmail.verified && userDocEmail.isCreatedByPass) {
       if (userDocEmail.email === email) {
-        return res.status(409).json({
-          status: false,
-          message: "Email is already in use",
-        });
+        throwError("Email is already in use", 409);
       }
     }
 
@@ -69,15 +63,12 @@ exports.register = async (req, res) => {
       userId: userDocEmail._id,
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Something went wrong!",
-    });
+    next(error);
   }
 };
 
 // Send OTP
-exports.sendOTP = async (req, res) => {
+exports.sendOTP = async (req, res, next) => {
   try {
     const { userId } = req.body;
 
@@ -93,10 +84,7 @@ exports.sendOTP = async (req, res) => {
       otpExpires,
     });
     if (!user) {
-      return res.status(404).json({
-        status: false,
-        message: "User does not exist",
-      });
+      throwError("User does not exist");
     }
     user.otp = new_otp.toString();
     await user.save({ new: true, validateModifiedOnly: true });
@@ -114,15 +102,12 @@ exports.sendOTP = async (req, res) => {
       timeExpired: EXPIRED_TIME_OTP,
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Something went wrong!",
-    });
+    next(error);
   }
 };
 
 // Verify OTP
-exports.verifyOTP = async (req, res) => {
+exports.verifyOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
@@ -131,23 +116,14 @@ exports.verifyOTP = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({
-        status: false,
-        message: "Email is invalid",
-      });
+      throwError("Email is invalid");
     }
 
     if (new Date(user.otpExpires).getTime() < Date.now()) {
-      return res.status(400).json({
-        status: false,
-        message: "OTP is expired",
-      });
+      throwError("OTP is expired");
     }
     if (!(await user.correctOTP(otp, user.otp))) {
-      return res.status(400).json({
-        status: false,
-        message: "OTP is incorrect",
-      });
+      throwError("OTP is incorrect");
     }
 
     user.otp = undefined;
@@ -170,10 +146,7 @@ exports.verifyOTP = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Something went wrong!",
-    });
+    next(error);
   }
 };
 
@@ -189,38 +162,23 @@ exports.login = async (req, res, next) => {
     const userDoc = await User.findOne({ email: email }).select("+password");
 
     if (!userDoc) {
-      return res.status(404).json({
-        status: false,
-        message: "Email or Password is incorrect",
-      });
+      throwError("Email or Password is incorrect");
     }
 
     if (!(await userDoc.isCorrectPassword(password, userDoc.password))) {
-      return res.status(404).json({
-        status: false,
-        message: "Email or Password is incorrect",
-      });
+      throwError("Email or Password is incorrect");
     }
 
     if (!userDoc.verified || !userDoc.isCreatedByPass) {
-      return res.status(400).json({
-        status: false,
-        message: "Account has not been verified",
-      });
+      throwError("Account has not been verified");
     }
 
     if (userDoc.isDisabled) {
-      return res.status(400).json({
-        status: false,
-        message: "Account has been disalbe. Please contact to admin",
-      });
+      throwError("Account has been disalbe. Please contact to admin");
     }
 
     if (userDoc.deviceManagement.length > LIMIT_DEVICE) {
-      return res.status(400).json({
-        status: false,
-        message: `Just only allow ${LIMIT_DEVICE} login`,
-      });
+      throwError(`Just only allow ${LIMIT_DEVICE} login`);
     }
 
     await updateDeviceManagement(userDoc, req);
@@ -241,23 +199,29 @@ exports.login = async (req, res, next) => {
   }
 };
 
-exports.loginWithGoogle = async (req, res) => {
+exports.loginWithGoogle = async (req, res, next) => {
   try {
     const { googleId, email, avatar, firstName, lastName } = req.body;
 
     if (!googleId || !email) {
-      return res.status(400).json({
-        status: false,
-        message: "Google ID and email are required",
-      });
+      throwError("Google ID and email are required");
     }
 
     let user = await User.findOne({ $or: [{ googleId }, { email }] });
 
     if (!user) {
+      // gen random number to username
+      const randomNumber = otpGenerator.generate(3, {
+        upperCaseAlphabets: false,
+        specialChars: false,
+        lowerCaseAlphabets: false,
+      });
+      const username = firstName + lastName + randomNumber;
+
       user = await User.create({
         googleId,
         email,
+        username,
         verified: true,
         inforAccountGoogle: {
           avatar: {
@@ -269,10 +233,7 @@ exports.loginWithGoogle = async (req, res) => {
       });
     } else {
       if (user.isDisabled) {
-        return res.status(400).json({
-          status: false,
-          message: "Account has been disabled. Please contact admin",
-        });
+        throwError("Account has been disabled. Please contact admin");
       }
 
       if (!user.googleId) {
@@ -305,24 +266,18 @@ exports.loginWithGoogle = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Something went wrong!",
-    });
+    next(error);
   }
 };
 
 // Remove Account
-exports.deleteAccount = async (req, res) => {
+exports.deleteAccount = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const userDoc = await User.findByIdAndDelete(userId);
 
     if (!userDoc) {
-      return res.status(404).json({
-        status: false,
-        message: "User not found",
-      });
+      throwError("User not found");
     }
 
     return res.status(200).json({
@@ -330,22 +285,18 @@ exports.deleteAccount = async (req, res) => {
       message: "Account deleted successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Something went wrong!",
-    });
+    next(error);
   }
 };
 
 // Logout Acount
-exports.logout = async (req, res) => {
+exports.logout = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const deviceId = getDeviceId(req);
 
     const userDoc = await User.findById(userId);
-    if (!userDoc)
-      return res.status(404).json({ message: "Not found user", status: false });
+    if (!userDoc) return throwError("Not found user");
 
     // Xóa session của thiết bị hiện tại
     userDoc.deviceManagement = userDoc.deviceManagement.filter(
@@ -361,10 +312,7 @@ exports.logout = async (req, res) => {
       message: "Log out successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Something went wrong!",
-    });
+    next(error);
   }
 };
 
@@ -375,10 +323,7 @@ exports.forgotPassword = async (req, res, next) => {
   const user = await User.findOne({ email: email });
 
   if (!user || !user.isCreatedByPass) {
-    return res.status(404).json({
-      status: false,
-      message: "Not found user",
-    });
+    throwError("Not found user");
   }
 
   const resetToken = await user.createPasswordResetToken();
@@ -399,15 +344,12 @@ exports.forgotPassword = async (req, res, next) => {
       status: true,
       message: "Send reset password successfully",
     });
-  } catch (err) {
+  } catch (error) {
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
 
     await user.save({ validateBeforeSave: false });
-    return res.status(500).json({
-      status: false,
-      message: "There was an error sending the email, Please try again later",
-    });
+    next(error);
   }
 };
 
@@ -424,10 +366,7 @@ exports.resetPassword = async (req, res, next) => {
     });
 
     if (!user) {
-      return res.status(404).json({
-        status: false,
-        message: "Token is Invalid or Expired",
-      });
+      throwError("Token is Invalid or Expired");
     }
     user.password = password;
     user.passwordResetToken = undefined;
@@ -440,10 +379,7 @@ exports.resetPassword = async (req, res, next) => {
       message: "Password Rested Successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error,
-    });
+    next(error);
   }
 };
 
@@ -451,30 +387,23 @@ exports.resetPassword = async (req, res, next) => {
 exports.updatePassword = async (req, res, next) => {
   try {
     const { userId } = req.user;
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, password } = req.body;
 
     const user = await User.findById(userId).select("+password");
 
     if (!(await user.isCorrectPassword(currentPassword, user.password))) {
-      return res.status(400).json({
-        status: false,
-        message: "Current password is incorrect",
-      });
+      throwError("Current password is incorrect", 410);
     }
 
-    user.password = newPassword;
+    user.password = password;
 
     await user.save({ validateModifiedOnly: true });
-
     return res.status(200).json({
       status: true,
       message: "Password updated successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 

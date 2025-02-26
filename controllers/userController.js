@@ -62,10 +62,22 @@ exports.getProfile = async (req, res, next) => {
           message: "Get info successfully",
         });
       case "1":
+        const { page = 1, limit = 10 } = req.query;
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
+
+        const paginatedHistory = user.purchasedHistory
+          .slice()
+          .reverse()
+          .slice(startIndex, endIndex);
+
         return res.status(200).json({
           status: true,
-          data: user.purchasedHistory.reverse(),
+          data: paginatedHistory,
           message: "Get history purchase successfully",
+          currentPage: page,
+          totalPages: Math.ceil(user.purchasedHistory.length / limit),
+          totalItems: user.purchasedHistory.length,
         });
       case "2":
         user.purchasedMoviesMonth = user.purchasedMoviesMonth.map((movie) => ({

@@ -26,7 +26,7 @@ const UserSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
-      maxLength: [10, "username must be less than 10 characters"],
+      maxLength: [20, "username must be less than 20 characters"],
     },
     avatar: {
       id: String,
