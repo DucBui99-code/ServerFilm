@@ -1,11 +1,18 @@
 const User = require("../models/UserModel");
-const cloudinary = require("cloudinary").v2;
-const { DetailMovie } = require("../models/DetailMovieModel");
 const moment = require("moment");
-const { PATH_IMAGE, TYPE_LOGIN } = require("../config/CONSTANT");
+const cloudinary = require("cloudinary").v2;
+
+const { CommentMovie } = require("../models/CommentModel");
+const { DetailMovie } = require("../models/DetailMovieModel");
+const {
+  PATH_IMAGE,
+  TYPE_LOGIN,
+  ACTION_COMMENT_TYPE,
+} = require("../config/CONSTANT");
+const throwError = require("../utils/throwError");
 
 // Get Profile
-exports.getProfile = async (req, res) => {
+exports.getProfile = async (req, res, next) => {
   try {
     const { userId, typeLogin } = req.user;
     const { type } = req.query;
@@ -133,15 +140,12 @@ exports.getProfile = async (req, res) => {
         });
     }
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // Update user information
-exports.updateInformation = async (req, res) => {
+exports.updateInformation = async (req, res, next) => {
   try {
     const { userId, typeLogin } = req.user;
     const { username, firstName, lastName, phoneNumber, birthDay, sex } =
@@ -219,15 +223,12 @@ exports.updateInformation = async (req, res) => {
       message: "User info updated successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // Upload avatar
-exports.upLoadAvatar = async (req, res) => {
+exports.upLoadAvatar = async (req, res, next) => {
   try {
     const { userId } = req.user;
     let oldImageId = null;
@@ -271,15 +272,12 @@ exports.upLoadAvatar = async (req, res) => {
       message: "Upload avatar successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // Remove or add movie
-exports.toggleFavoriteMovie = async (req, res) => {
+exports.toggleFavoriteMovie = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const { movieId, action } = req.body;
@@ -332,12 +330,12 @@ exports.toggleFavoriteMovie = async (req, res) => {
       } favorites successfully`,
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
 // Removie Device
-exports.removeDeviceManagement = async (req, res) => {
+exports.removeDeviceManagement = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const { deviceId } = req.body;
@@ -364,216 +362,318 @@ exports.removeDeviceManagement = async (req, res) => {
       message: "Device removed successfully",
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
-// Comment Movie
-exports.commentMovie = async (req, res) => {
+exports.commentMovie = async (req, res, next) => {
   try {
     const { userId } = req.user;
-    const { content, movieId } = req.body;
+    const { content, movieId, type, commentId, replyTo } = req.body;
 
     if (!movieId || !content || !content.trim()) {
-      return res
-        .status(400)
-        .json({ message: "movieId and content are required", status: false });
+      throwError("movieId and content are required");
     }
 
-    const detailMovie = await DetailMovie.findById(movieId);
-    if (!detailMovie) {
-      return res
-        .status(404)
-        .json({ message: "Not found detailMovie", status: false });
+    // Kiểm tra xem phim có tồn tại không
+    const movieExists = await DetailMovie.exists({ _id: movieId });
+    if (!movieExists) {
+      throwError("Not found movie to comment");
     }
 
-    const commentMovie = {
-      user: userId,
-      content,
-      time: new Date().toISOString(),
-      edited: false,
-      likes: 0,
-      disLikes: 0,
-      replies: [],
-    };
+    // Tìm document comments của phim, nếu chưa có thì tạo mới
+    let movieComments = await CommentMovie.findOne({ movieId });
+    if (!movieComments) {
+      movieComments = new CommentMovie({ movieId, comments: [] });
+    }
 
-    detailMovie.comments.push(commentMovie);
-    await detailMovie.save({ validateModifiedOnly: true });
+    if (type === "comment") {
+      // 🔹 Thêm comment mới
+      movieComments.comments.push({
+        user: userId,
+        content,
+        likes: 0,
+        disLikes: 0,
+        time: Date.now(),
+        edited: false,
+        replies: [],
+      });
+    } else if (type === "reply") {
+      if (!commentId) {
+        throwError("commentId is required for replies");
+      }
+
+      // 🔹 Tìm comment gốc
+      const comment = movieComments.comments.id(commentId);
+      if (!comment) {
+        throwError("Not found comment to reply");
+      }
+
+      // 🔹 Tạo reply mới
+      const newReply = {
+        user: userId,
+        content,
+        time: Date.now(),
+        edited: false,
+        likes: 0,
+        disLikes: 0,
+      };
+
+      // 🔹 Nếu có `replyTo`, kiểm tra và cập nhật
+      if (replyTo) {
+        const replyToData = comment.replies.id(replyTo);
+        if (replyToData && replyToData.user.toString() !== userId.toString()) {
+          newReply.replyTo = replyToData.user;
+        }
+      }
+
+      // 🔹 Thêm vào danh sách `replies`
+      comment.replies.push(newReply);
+    } else {
+      throwError("Invalid type. Use 'comment' or 'reply'");
+    }
+
+    // 🔹 Lưu thay đổi vào database
+    await movieComments.save({ validateModifiedOnly: true });
+
     return res
       .status(201)
-      .json({ message: "Comment added successfully", status: true });
+      .json({ message: `${type} added successfully`, status: true });
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
-exports.editCommentMovie = async (req, res) => {
+exports.editCommentMovie = async (req, res, next) => {
   try {
     const { userId } = req.user;
-    const { movieId, content, commentId } = req.body;
+    const { movieId, content, commentId, type, replyId, replyTo } = req.body;
+
     if (!movieId || !content || !content.trim()) {
-      return res
-        .status(400)
-        .json({ message: "movieId and content are required", status: false });
+      throwError("movieId and content are required");
     }
 
-    const detailMovie = await DetailMovie.findById(movieId);
+    const commentMovieDb = await CommentMovie.findOne({ movieId });
 
-    if (!detailMovie) {
-      return res
-        .status(404)
-        .json({ message: "Not found detailMovie", status: false });
+    if (!commentMovieDb) {
+      throwError("Not found commentMovie");
     }
 
-    const indexCommentById = detailMovie.comments.findIndex(
-      (comment) => comment._id.toString() === commentId.toString()
-    );
+    if (type === "comment") {
+      // 🔹 Tìm comment trong danh sách comments
+      const comment = commentMovieDb.comments.id(commentId);
+      if (!comment) {
+        throwError("Not found comment to edit");
+      }
 
-    if (indexCommentById < 0) {
-      return res
-        .status(404)
-        .json({ message: "Not found comment to edit", status: false });
+      // 🔹 Kiểm tra quyền chỉnh sửa
+      if (comment.user.toString() !== userId.toString()) {
+        throwError("This is not your comment");
+      }
+
+      // 🔹 Cập nhật nội dung comment
+      comment.content = content;
+      comment.time = Date.now();
+      comment.edited = true;
+    } else if (type === "reply") {
+      if (!replyId) {
+        throwError("Not found replyId");
+      }
+
+      // 🔹 Tìm comment chứa reply
+      const comment = commentMovieDb.comments.id(commentId);
+      if (!comment) {
+        throwError("Not found comment to edit reply");
+      }
+
+      // 🔹 Tìm reply trong danh sách replies
+      const reply = comment.replies.id(replyId);
+      if (!reply) {
+        throwError("Not found reply to edit");
+      }
+
+      // 🔹 Kiểm tra quyền chỉnh sửa
+      if (reply.user.toString() !== userId.toString()) {
+        throwError("This is not your reply");
+      }
+
+      // 🔹 Cập nhật nội dung reply
+      reply.content = content;
+      reply.time = Date.now();
+      reply.edited = true;
+
+      // 🔹 Nếu có `replyTo`, kiểm tra và cập nhật
+      if (replyTo) {
+        const replyToData = comment.replies.id(replyTo);
+        if (replyToData && replyToData.user.toString() !== userId.toString()) {
+          reply.replyTo = replyToData.user;
+        }
+      }
+    } else {
+      throwError("Invalid type. Use 'comment' or 'reply'");
     }
 
-    const commentMovie = detailMovie.comments[indexCommentById];
+    // 🔹 Lưu thay đổi vào database
+    await commentMovieDb.save({ validateModifiedOnly: true });
 
-    if (commentMovie.user.toString() !== userId.toString()) {
-      return res
-        .status(400)
-        .json({ message: "This is not your comment", status: false });
-    }
-
-    detailMovie.comments[indexCommentById].content = content;
-    detailMovie.comments[indexCommentById].time = Date.now();
-    detailMovie.comments[indexCommentById].edited = true;
-
-    await detailMovie.save({ validateModifiedOnly: true });
     return res
       .status(200)
-      .json({ message: "Edit comment successfully", status: true });
+      .json({ message: `Edit ${type} successfully`, status: true });
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
-exports.deleteCommentMovie = async (req, res) => {
+exports.deleteCommentMovie = async (req, res, next) => {
   try {
     const { userId } = req.user;
-    const { movieId, commentId } = req.body;
+    const { movieId, commentId, type, replyId } = req.body;
 
     if (!movieId || !commentId) {
-      return res.status(400).json({
-        message: "movieId and commentId are required",
-        status: false,
-      });
+      throwError("movieId and commentId are required");
     }
 
-    const detailMovie = await DetailMovie.findById(movieId);
-
-    if (!detailMovie) {
-      return res
-        .status(404)
-        .json({ message: "Not found detailMovie", status: false });
+    const commentMovieDb = await CommentMovie.findOne({ movieId });
+    if (!commentMovieDb) {
+      throwError("Not found Comment");
     }
 
-    const indexCommentById = detailMovie.comments.findIndex(
-      (comment) => comment._id.toString() === commentId.toString()
-    );
+    if (type === "comment") {
+      // 🔹 Tìm comment theo id
+      const comment = commentMovieDb.comments.id(commentId);
+      if (!comment) {
+        return res
+          .status(404)
+          .json({ message: "Not found comment to delete", status: false });
+      }
 
-    if (indexCommentById < 0) {
-      return res
-        .status(404)
-        .json({ message: "Not found comment to delete", status: false });
+      // 🔹 Kiểm tra quyền sở hữu
+      if (comment.user.toString() !== userId.toString()) {
+        throwError("This is not your comment");
+      }
+
+      // 🔹 Xóa comment
+      comment.remove();
+    } else if (type === "reply") {
+      if (!replyId) {
+        throwError("Not found replyId");
+      }
+
+      // 🔹 Tìm comment chứa reply
+      const comment = commentMovieDb.comments.id(commentId);
+      if (!comment) {
+        throwError("Not found comment to delete reply");
+      }
+
+      // 🔹 Tìm reply trong danh sách replies
+      const reply = comment.replies.id(replyId);
+      if (!reply) {
+        throwError("Not found reply to delete");
+      }
+
+      // 🔹 Kiểm tra quyền sở hữu
+      if (reply.user.toString() !== userId.toString()) {
+        throwError("This is not your reply");
+      }
+
+      // 🔹 Xóa reply
+      reply.remove();
+    } else {
+      throwError("Invalid type. Use 'comment' or 'reply'");
     }
 
-    const commentMovie = detailMovie.comments[indexCommentById];
-
-    if (commentMovie.user.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ message: "This is not your comment", status: false });
-    }
-
-    // Xóa comment khỏi mảng comments
-    detailMovie.comments.splice(indexCommentById, 1);
-
-    await detailMovie.save({ validateModifiedOnly: true });
+    await commentMovieDb.save({ validateModifiedOnly: true });
 
     return res
       .status(200)
-      .json({ message: "Delete comment successfully", status: true });
+      .json({ message: `Delete ${type} successfully`, status: true });
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
-exports.replyComment = async (req, res) => {
+exports.likeOrDislikeComment = async (req, res, next) => {
   try {
+    const { movieId, commentId, typeAction, type, replyId } = req.body;
     const { userId } = req.user;
-    const { movieId, commentId, content, replyTo } = req.body;
 
-    if (!movieId || !commentId || !content || !content.trim()) {
-      return res.status(400).json({
-        message: "movieId, commentId, and content are required",
-        status: false,
-      });
+    if (
+      !userId ||
+      !movieId ||
+      !commentId ||
+      ![ACTION_COMMENT_TYPE.like, ACTION_COMMENT_TYPE.disLike].includes(
+        typeAction
+      )
+    ) {
+      throwError("Invalid request data");
     }
 
-    const detailMovie = await DetailMovie.findById(movieId);
-    if (!detailMovie) {
-      return res
-        .status(404)
-        .json({ message: "Not found detailMovie", status: false });
+    const movieComments = await CommentMovie.findOne({ movieId });
+    if (!movieComments) {
+      throwError("Comments not found");
     }
 
-    // Tìm comment gốc
-    const comment = detailMovie.comments.find(
-      (comment) => comment._id.toString() === commentId.toString()
-    );
+    let comment, reactionTarget;
 
-    if (!comment) {
-      return res
-        .status(404)
-        .json({ message: "Not found comment to reply", status: false });
+    if (type === "comment") {
+      comment = movieComments.comments.id(commentId);
+      if (!comment) {
+        throwError("Comment not found");
+      }
+      reactionTarget = comment;
+    } else if (type === "reply") {
+      if (!replyId) {
+        throwError("replyId is required for replies");
+      }
+      comment = movieComments.comments.id(commentId);
+      if (!comment) {
+        throwError("Comment not found");
+      }
+      const reply = comment.replies.id(replyId);
+      if (!reply) {
+        throwError("Reply not found");
+      }
+      reactionTarget = reply;
+    } else {
+      throwError("Invalid type. Use 'comment' or 'reply'");
     }
 
-    // Tạo reply mới
-    const newReply = {
-      content,
-      user: userId,
-      time: Date.now(),
-      edited: false,
-      likes: 0,
-      disLikes: 0,
+    const hasLiked = reactionTarget.likesRef.includes(userId);
+    const hasDisliked = reactionTarget.disLikesRef.includes(userId);
+
+    const updateReaction = (add, remove, countField, refField) => {
+      if (add) {
+        reactionTarget[refField].push(userId);
+        reactionTarget[countField] += 1;
+      } else {
+        reactionTarget[refField] = reactionTarget[refField].filter(
+          (id) => id.toString() !== userId
+        );
+        reactionTarget[countField] -= 1;
+      }
     };
 
-    // Nếu có `replyTo`, kiểm tra xem `replyTo` có tồn tại trong `replies[]` không
-    if (replyTo) {
-      const replyToData = comment.replies.find(
-        (reply) => reply._id.toString() === replyTo.toString()
-      );
-
-      if (
-        replyToData &&
-        replyToData.user.toString() !== userId.toString() &&
-        replyToData.user.toString() !== comment.user.toString()
-      ) {
-        newReply.replyTo = replyToData.user; // Chỉ gán nếu `replyTo` hợp lệ
+    if (typeAction === ACTION_COMMENT_TYPE.like) {
+      updateReaction(!hasLiked, hasDisliked, "likes", "likesRef");
+      if (hasDisliked) {
+        updateReaction(false, true, "disLikes", "disLikesRef");
+      }
+    } else if (typeAction === ACTION_COMMENT_TYPE.disLike) {
+      updateReaction(!hasDisliked, hasLiked, "disLikes", "disLikesRef");
+      if (hasLiked) {
+        updateReaction(false, true, "likes", "likesRef");
       }
     }
 
-    // Thêm vào danh sách `replies`
-    comment.replies.push(newReply);
+    await movieComments.save({ validateModifiedOnly: true });
 
-    // Lưu lại thay đổi
-    await detailMovie.save({ validateModifiedOnly: true });
-
-    return res.status(201).json({
-      message: "Reply added successfully",
+    res.status(200).json({
+      message: `${typeAction} ${type} successful`,
       status: true,
-      reply: newReply, // Trả về reply mới để frontend cập nhật
+      likes: reactionTarget.likes,
+      disLikes: reactionTarget.disLikes,
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };

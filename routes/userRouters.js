@@ -27,7 +27,7 @@ router.post(
   userController.removeDeviceManagement
 );
 
-router.post("/commentMovie", authMiddleware, userController.commentMovie);
+router.post("/addCommentMovie", authMiddleware, userController.commentMovie);
 
 router.post(
   "/editCommentMovie",
@@ -40,6 +40,10 @@ router.post(
   userController.deleteCommentMovie
 );
 
-router.post("/replyComment", authMiddleware, userController.replyComment);
+router.post(
+  "/actionCommentMovie",
+  authMiddleware,
+  userController.likeOrDislikeComment
+);
 
 module.exports = router;

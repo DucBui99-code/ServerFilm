@@ -14,7 +14,10 @@ const URL_CREATE_BILL = "https://sb-openapi.zalopay.vn/v2/create";
 const PAYMENT_METHODS = ["ZaloPay", "MoMo", "ATMCard"];
 const PACKAGE_TYPE = ["packageMonth", "packageRent"];
 const STATUS = ["pending", "completed", "failed"];
-
+const ACTION_COMMENT_TYPE = {
+  like: "like",
+  disLike: "disLike",
+};
 module.exports = {
   EXPIRED_TIME_OTP,
   LIMIT_DEVICE,
@@ -29,4 +32,5 @@ module.exports = {
   PAYMENT_METHODS,
   PACKAGE_TYPE,
   STATUS,
+  ACTION_COMMENT_TYPE,
 };
