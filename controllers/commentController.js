@@ -54,22 +54,29 @@ exports.getCommentsByMovie = async (req, res, next) => {
           username:
             userMap[comment.user.toString()]?.username || "Unknown User",
         },
-        replies: comment.replies.map((reply) => ({
-          ...reply,
-          userDetails: {
-            avatar:
-              reply.typeComment === "byGoogle"
-                ? userMap[reply.user.toString()]?.inforAccountGoogle?.avatar
-                    ?.url
-                : userMap[reply.user.toString()]?.avatar?.url || null,
-            username:
-              userMap[reply.user.toString()]?.username || "Unknown User",
-          },
-          replyToUsername: reply.replyTo
-            ? userMap[reply.replyTo.toString()]?.username || null
-            : null,
-        })),
+        replies: comment.replies
+          .map((reply) => ({
+            ...reply,
+            userDetails: {
+              avatar:
+                reply.typeComment === "byGoogle"
+                  ? userMap[reply.user.toString()]?.inforAccountGoogle?.avatar
+                      ?.url
+                  : userMap[reply.user.toString()]?.avatar?.url || null,
+              username:
+                userMap[reply.user.toString()]?.username || "Unknown User",
+            },
+            replyToUsername: reply.replyTo
+              ? userMap[reply.replyTo.toString()]?.username || null
+              : null,
+          }))
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), // Sắp xếp replies theo thời gian
       })
+    );
+
+    // 🔹 Sắp xếp comments theo thời gian (mới nhất lên đầu)
+    formattedComments.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     );
 
     // 🔹 Phân trang dữ liệu
@@ -86,6 +93,6 @@ exports.getCommentsByMovie = async (req, res, next) => {
       isLastPage: Boolean(isLastPage),
     });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+    next(error);
   }
 };
