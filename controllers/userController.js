@@ -8,6 +8,7 @@ const {
   PATH_IMAGE,
   TYPE_LOGIN,
   ACTION_COMMENT_TYPE,
+  COMMENT_TYPE,
 } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
 
@@ -380,7 +381,7 @@ exports.removeDeviceManagement = async (req, res, next) => {
 
 exports.commentMovie = async (req, res, next) => {
   try {
-    const { userId } = req.user;
+    const { userId, typeLogin } = req.user;
     const { content, movieId, type, commentId, replyTo } = req.body;
 
     if (!movieId || !content || !content.trim()) {
@@ -399,7 +400,7 @@ exports.commentMovie = async (req, res, next) => {
       movieComments = new CommentMovie({ movieId, comments: [] });
     }
 
-    if (type === "comment") {
+    if (type === COMMENT_TYPE.comment) {
       // 🔹 Thêm comment mới
       movieComments.comments.push({
         user: userId,
@@ -409,8 +410,9 @@ exports.commentMovie = async (req, res, next) => {
         time: Date.now(),
         edited: false,
         replies: [],
+        typeComment: typeLogin,
       });
-    } else if (type === "reply") {
+    } else if (type === COMMENT_TYPE.reply) {
       if (!commentId) {
         throwError("commentId is required for replies");
       }
@@ -429,6 +431,7 @@ exports.commentMovie = async (req, res, next) => {
         edited: false,
         likes: 0,
         disLikes: 0,
+        typeComment: typeLogin,
       };
 
       // 🔹 Nếu có `replyTo`, kiểm tra và cập nhật
@@ -471,7 +474,7 @@ exports.editCommentMovie = async (req, res, next) => {
       throwError("Not found commentMovie");
     }
 
-    if (type === "comment") {
+    if (type === COMMENT_TYPE.comment) {
       // 🔹 Tìm comment trong danh sách comments
       const comment = commentMovieDb.comments.id(commentId);
       if (!comment) {
@@ -487,7 +490,7 @@ exports.editCommentMovie = async (req, res, next) => {
       comment.content = content;
       comment.time = Date.now();
       comment.edited = true;
-    } else if (type === "reply") {
+    } else if (type === COMMENT_TYPE.reply) {
       if (!replyId) {
         throwError("Not found replyId");
       }
@@ -550,7 +553,7 @@ exports.deleteCommentMovie = async (req, res, next) => {
       throwError("Not found Comment");
     }
 
-    if (type === "comment") {
+    if (type === COMMENT_TYPE.comment) {
       // 🔹 Tìm comment theo id
       const comment = commentMovieDb.comments.id(commentId);
       if (!comment) {
@@ -565,8 +568,8 @@ exports.deleteCommentMovie = async (req, res, next) => {
       }
 
       // 🔹 Xóa comment
-      comment.remove();
-    } else if (type === "reply") {
+      comment.deleteOne();
+    } else if (type === COMMENT_TYPE.reply) {
       if (!replyId) {
         throwError("Not found replyId");
       }
@@ -589,7 +592,7 @@ exports.deleteCommentMovie = async (req, res, next) => {
       }
 
       // 🔹 Xóa reply
-      reply.remove();
+      reply.deleteOne();
     } else {
       throwError("Invalid type. Use 'comment' or 'reply'");
     }
@@ -627,13 +630,13 @@ exports.likeOrDislikeComment = async (req, res, next) => {
 
     let comment, reactionTarget;
 
-    if (type === "comment") {
+    if (type === COMMENT_TYPE.comment) {
       comment = movieComments.comments.id(commentId);
       if (!comment) {
         throwError("Comment not found");
       }
       reactionTarget = comment;
-    } else if (type === "reply") {
+    } else if (type === COMMENT_TYPE.reply) {
       if (!replyId) {
         throwError("replyId is required for replies");
       }

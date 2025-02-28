@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { PACKAGE_TYPE, STATUS } = require("../config/CONSTANT");
+const { PACKAGE_TYPE, STATUS, PAYMENT_METHODS } = require("../config/CONSTANT");
 
 const UserSchema = new mongoose.Schema(
   {
@@ -142,6 +142,11 @@ const UserSchema = new mongoose.Schema(
         packageType: {
           type: String,
           emun: PACKAGE_TYPE,
+        },
+        paymentMethod: {
+          type: String,
+          enum: PAYMENT_METHODS,
+          required: true,
         },
       },
     ],

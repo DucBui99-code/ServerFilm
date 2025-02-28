@@ -101,6 +101,7 @@ exports.CreateBillService = async (
       purchaseDate: moment().format("DD/MM/YYYY HH:mm:ss"),
       transactionId: transactionId,
       packageType: packageTypeUser,
+      paymentMethod: paymentMethod,
     });
 
     await newBill.save();

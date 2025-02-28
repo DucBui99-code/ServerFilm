@@ -14,6 +14,10 @@ const replySchema = new mongoose.Schema({
     ref: "Users",
     required: false,
   },
+  typeComment: {
+    type: String,
+    enum: ["byGoogle", "byPass"],
+  },
 });
 
 const commentsSchema = new mongoose.Schema({
@@ -36,6 +40,10 @@ const commentsSchema = new mongoose.Schema({
       disLikes: { type: Number, default: 0 }, // Tổng số dislike
       time: { type: Date, default: Date.now },
       edited: { type: Boolean, default: false },
+      typeComment: {
+        type: String,
+        enum: ["byGoogle", "byPass"],
+      },
       replies: [replySchema], // Gắn replies vào comment
     },
   ],

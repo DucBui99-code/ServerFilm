@@ -18,6 +18,10 @@ const ACTION_COMMENT_TYPE = {
   like: "like",
   disLike: "disLike",
 };
+const COMMENT_TYPE = {
+  comment: "comment",
+  reply: "reply",
+};
 module.exports = {
   EXPIRED_TIME_OTP,
   LIMIT_DEVICE,
@@ -33,4 +37,5 @@ module.exports = {
   PACKAGE_TYPE,
   STATUS,
   ACTION_COMMENT_TYPE,
+  COMMENT_TYPE,
 };
