@@ -45,7 +45,9 @@ exports.getAllMovies = async (req, res) => {
 
 exports.searchMovies = async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, page = 1 } = req.query;
+    const limit = 5;
+    const skip = (page - 1) * limit;
 
     if (!q || typeof q !== "string" || q.trim().length === 0) {
       return res
@@ -61,21 +63,37 @@ exports.searchMovies = async (req, res) => {
     if (safeQuery.length > 50) {
       return res
         .status(400)
-        .json({ message: "Query is to long", items: [], status: false });
+        .json({ message: "Query is too long", items: [], status: false });
     }
+
+    const totalMovies = await Movie.countDocuments({
+      $or: [
+        { name: { $regex: safeQuery, $options: "i" } },
+        { origin_name: { $regex: safeQuery, $options: "i" } },
+      ],
+    }).lean();
 
     const movies = await Movie.find({
       $or: [
-        { name: { $regex: q, $options: "i" } },
-        { origin_name: { $regex: q, $options: "i" } },
+        { name: { $regex: safeQuery, $options: "i" } },
+        { origin_name: { $regex: safeQuery, $options: "i" } },
       ],
-    }).lean();
+    })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     return res.status(200).json({
       status: true,
       data: {
         items: movies,
         pathImage: PATH_IMAGE,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalMovies / limit),
+          totalMovies,
+          lastPage: page >= Math.ceil(totalMovies / limit),
+        },
       },
       message: "Search movie success",
     });
