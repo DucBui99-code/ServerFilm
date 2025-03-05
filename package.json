@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon server.js",
+    "start": "nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -25,6 +25,7 @@
     "express-rate-limit": "^7.2.0",
     "express-session": "^1.18.1",
     "helmet": "^7.1.0",
+    "ioredis": "^5.5.0",
     "jsonwebtoken": "^9.0.2",
     "moment-timezone": "^0.5.45",
     "mongoose": "^8.3.4",
@@ -36,7 +37,7 @@
     "otp-generator": "^4.0.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "socket.io": "^4.7.5",
+    "socket.io": "^4.8.1",
     "ua-parser-js": "^2.0.2",
     "validator": "^13.11.0",
     "xss": "^1.0.15"
