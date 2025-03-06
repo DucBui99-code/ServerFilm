@@ -1,11 +1,13 @@
-const { saveCommentToCache } = require("./dataComments");
+const { saveCommentToCache, canSendComment } = require("./dataComments");
 const User = require("../models/UserModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
+const socketAuthMiddleware = require("./socketMiddleware");
 
 const viewers = new Map();
 
 module.exports = function (io) {
-  // WebSocket nhận & gửi comment
+  io.use(socketAuthMiddleware); // ✅ Áp dụng middleware xác thực JWT
+
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
 
@@ -24,34 +26,41 @@ module.exports = function (io) {
       }
     });
 
-    socket.on("sendComment", async ({ movieId, userId, content }) => {
-      if (!content || !content.trim() || !movieId || !userId) {
-        return socket.emit(
-          "error",
-          "Invalid information movieId, userId or content"
-        );
+    socket.on("sendComment", async ({ movieId, content }) => {
+      if (!content || !content.trim() || !movieId) {
+        return socket.emit("error", "Invalid movieId or content");
       }
-      const user = await User.findById(userId).lean();
+      const { avatar, username, userId } = socket.user; // ✅ Lấy từ middleware
+
+      const allowed = await canSendComment(userId);
+
+      if (!allowed) {
+        return socket.emit("error", "Bạn chat nhanh qua, vui lòng chờ");
+      }
+
       const exitMovie = await DetailMovie.findById(movieId).lean();
+
       if (!exitMovie) {
         return socket.emit("error", "Movie not found");
       }
-      if (!user) {
-        return socket.emit("error", "User not found");
-      }
-
-      const { avatar, username } = user;
 
       const comment = {
-        id: new Date().getTime(), // Use timestamp to ensure uniqueness
+        id: new Date().getTime(),
         movieId,
         avatar,
         username,
         content,
         createdAt: new Date(),
       };
+
       await saveCommentToCache(movieId, comment);
-      io.emit("receiveComment", comment); // Gửi cho tất cả client
+
+      const viewersSet = viewers.get(movieId);
+      if (viewersSet) {
+        viewersSet.forEach((viewerId) => {
+          io.to(viewerId).emit("receiveComment", comment);
+        });
+      }
     });
 
     socket.on("disconnect", () => {

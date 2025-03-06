@@ -1,4 +1,5 @@
 const Redis = require("ioredis");
+const { TIME_WINDOW, LIMIT_CHAT_LIVE } = require("../config/CONSTANT");
 const redis = new Redis({ host: "localhost", port: 6379 });
 
 const saveCommentToCache = async (movieId, comment) => {
@@ -13,4 +14,23 @@ const getCommentsFromCache = async (movieId) => {
     .reverse();
 };
 
-module.exports = { saveCommentToCache, getCommentsFromCache };
+const canSendComment = async (userId) => {
+  const key = `chat_limit:${userId}`;
+
+  // Tăng số lần chat của user
+  const count = await redis.incr(key);
+
+  if (count === 1) {
+    // Nếu là lần đầu tiên, đặt thời gian hết hạn cho key
+    await redis.expire(key, TIME_WINDOW);
+  }
+
+  // Kiểm tra nếu vượt quá giới hạn
+  if (count > LIMIT_CHAT_LIVE) {
+    return false; // Chặn gửi comment
+  }
+
+  return true; // Cho phép gửi comment
+};
+
+module.exports = { saveCommentToCache, getCommentsFromCache, canSendComment };

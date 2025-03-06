@@ -22,6 +22,12 @@ const COMMENT_TYPE = {
   comment: "comment",
   reply: "reply",
 };
+
+const LINK_AVATAR_DEFAULT =
+  "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
+
+const LIMIT_CHAT_LIVE = 3;
+const TIME_WINDOW = 20; // giây
 module.exports = {
   EXPIRED_TIME_OTP,
   LIMIT_DEVICE,
@@ -38,4 +44,7 @@ module.exports = {
   STATUS,
   ACTION_COMMENT_TYPE,
   COMMENT_TYPE,
+  LINK_AVATAR_DEFAULT,
+  LIMIT_CHAT_LIVE,
+  TIME_WINDOW,
 };
