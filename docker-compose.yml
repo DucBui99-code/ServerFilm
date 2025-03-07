@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  my_backend:
+    build: .
+    container_name: backend_service
+    restart: always
+    env_file:
+      - config.env # Chỉ định file .env để Docker load biến
+    environment:
+      - MONGO_URI=mongodb+srv://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_CLUSTER}/${DATABASE_NAME}?retryWrites=true&w=majority
+    ports:
+      - "4000:3000"
