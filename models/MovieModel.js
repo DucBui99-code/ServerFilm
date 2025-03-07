@@ -22,6 +22,7 @@ const movieSchema = new mongoose.Schema({
   thumb_url: { type: String, required: true },
   poster_url: { type: String, required: true },
   year: { type: Number, required: true },
+  isLiveComment: { type: Boolean },
 });
 
 const Movie = mongoose.model("Movie", movieSchema);

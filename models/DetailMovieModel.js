@@ -29,6 +29,7 @@ const detailMovieSchema = new mongoose.Schema({
   isCopyRight: { type: Boolean },
   isCenima: { type: Boolean },
   isMono: { type: Boolean },
+  isLiveComment: { type: Boolean },
   created: {
     time: { type: Date, default: Date.now },
   },

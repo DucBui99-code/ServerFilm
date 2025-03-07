@@ -30,6 +30,12 @@ module.exports = function (io) {
       if (!content || !content.trim() || !movieId) {
         return socket.emit("error", "Invalid movieId or content");
       }
+      if (content.length >= 100) {
+        return socket.emit(
+          "error",
+          "Comment quá dài, vui lòng rút ngắn lại dưới 100 ký tự"
+        );
+      }
       const { avatar, username, userId } = socket.user; // ✅ Lấy từ middleware
 
       const allowed = await canSendComment(userId);
@@ -41,7 +47,13 @@ module.exports = function (io) {
       const exitMovie = await DetailMovie.findById(movieId).lean();
 
       if (!exitMovie) {
-        return socket.emit("error", "Movie not found");
+        return socket.emit("error", "Không tìm thấy phim");
+      }
+      if (!exitMovie.isLiveComment) {
+        return socket.emit(
+          "error",
+          "Phim này không hỗ trợ bình luận trực tiếp"
+        );
       }
 
       const comment = {

@@ -153,20 +153,22 @@ exports.verifyOTP = async (req, res, next) => {
 // Login
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    if (!email.trim() || !password.trim()) {
-      throwError("Both email and password are required");
+    if (!identifier.trim() || !password.trim()) {
+      throwError("Both identifier and password are required");
     }
 
-    const userDoc = await User.findOne({ email: email }).select("+password");
+    const userDoc = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    }).select("+password");
 
     if (!userDoc) {
-      throwError("Email or Password is incorrect");
+      throwError("Identifier or Password is incorrect");
     }
 
     if (!(await userDoc.isCorrectPassword(password, userDoc.password))) {
-      throwError("Email or Password is incorrect");
+      throwError("Identifier or Password is incorrect");
     }
 
     if (!userDoc.verified || !userDoc.isCreatedByPass) {
