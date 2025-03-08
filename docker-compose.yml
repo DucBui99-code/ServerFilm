@@ -5,8 +5,46 @@ services:
     container_name: backend_service
     restart: always
     env_file:
-      - config.env # Chỉ định file .env để Docker load biến
+      - .env # Chỉ định file .env để Docker load biến
     environment:
-      - MONGO_URI=mongodb+srv://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_CLUSTER}/${DATABASE_NAME}?retryWrites=true&w=majority
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - MONGO_URI=${DATABASE_URL}
+      - PASSWORD_EMAIL=${PASSWORD_EMAIL}
+      - USER_EMAIL=${USER_EMAIL}
+      - PASSWORD_EMAIL=${PASSWORD_EMAIL}
+      - JWT_SECRET=${JWT_SECRET}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - API_KEY_SEPAY=${API_KEY_SEPAY}
+      - KEY1=${KEY1}
+      - KEY2=${KEY2}
+      - APP_ID=${APP_ID}
     ports:
-      - "4000:3000"
+      - "8000:8000"
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo_service
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:latest
+    container_name: redis_service
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongodb_data:

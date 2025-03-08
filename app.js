@@ -2,6 +2,8 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http");
+const { createAdapter } = require("@socket.io/redis-adapter");
+const { createClient } = require("redis");
 
 const connectDB = require("./config/database");
 const errorHandler = require("./middlewares/errorHandler");
@@ -22,6 +24,14 @@ const io = require("socket.io")(server, {
     methods: ["GET", "POST"],
   },
 });
+
+const pubClient = createClient({
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+});
+const subClient = pubClient.duplicate();
+
+io.adapter(createAdapter(pubClient, subClient));
 
 app.use(express.json());
 
