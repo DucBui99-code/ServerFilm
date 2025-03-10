@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   my_backend:
-    image: duc020899/movie-night:latest
+    image: movie-night
     build: .
     container_name: backend_service
     restart: always

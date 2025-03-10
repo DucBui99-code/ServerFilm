@@ -16,12 +16,12 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-// const io = require("socket.io")(server, {
-//   cors: {
-//     origin: "*",
-//     methods: ["GET", "POST"],
-//   },
-// });
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
 app.use(express.json());
 
@@ -34,7 +34,7 @@ app.use(
     credentials: true,
   })
 );
-// commentSocket(io);
+commentSocket(io);
 
 app.use(requestLogger);
 app.use(rateLimiter);
