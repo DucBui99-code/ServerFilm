@@ -388,21 +388,19 @@ exports.commentMovie = async (req, res, next) => {
       throwError("movieId and content are required");
     }
 
-    // Kiểm tra xem phim có tồn tại không
     const movieExists = await DetailMovie.exists({ _id: movieId });
     if (!movieExists) {
       throwError("Not found movie to comment");
     }
 
-    // Tìm document comments của phim, nếu chưa có thì tạo mới
     let movieComments = await CommentMovie.findOne({ movieId });
     if (!movieComments) {
       movieComments = new CommentMovie({ movieId, comments: [] });
     }
 
+    let newCommentOrReply;
     if (type === COMMENT_TYPE.comment) {
-      // 🔹 Thêm comment mới
-      movieComments.comments.push({
+      newCommentOrReply = {
         user: userId,
         content,
         likes: 0,
@@ -411,20 +409,19 @@ exports.commentMovie = async (req, res, next) => {
         edited: false,
         replies: [],
         typeComment: typeLogin,
-      });
+      };
+      movieComments.comments.push(newCommentOrReply);
     } else if (type === COMMENT_TYPE.reply) {
       if (!commentId) {
         throwError("commentId is required for replies");
       }
 
-      // 🔹 Tìm comment gốc
       const comment = movieComments.comments.id(commentId);
       if (!comment) {
         throwError("Not found comment to reply");
       }
 
-      // 🔹 Tạo reply mới
-      const newReply = {
+      newCommentOrReply = {
         user: userId,
         content,
         time: Date.now(),
@@ -434,26 +431,40 @@ exports.commentMovie = async (req, res, next) => {
         typeComment: typeLogin,
       };
 
-      // 🔹 Nếu có `replyTo`, kiểm tra và cập nhật
       if (replyTo) {
         const replyToData = comment.replies.id(replyTo);
         if (replyToData && replyToData.user.toString() !== userId.toString()) {
-          newReply.replyTo = replyToData.user;
+          newCommentOrReply.replyTo = replyToData.user;
         }
       }
 
-      // 🔹 Thêm vào danh sách `replies`
-      comment.replies.push(newReply);
+      comment.replies.push(newCommentOrReply);
     } else {
       throwError("Invalid type. Use 'comment' or 'reply'");
     }
 
-    // 🔹 Lưu thay đổi vào database
     await movieComments.save({ validateModifiedOnly: true });
 
-    return res
-      .status(201)
-      .json({ message: `${type} added successfully`, status: true });
+    const savedCommentOrReply =
+      type === COMMENT_TYPE.comment
+        ? movieComments.comments[movieComments.comments.length - 1]
+        : movieComments.comments.id(commentId).replies[
+            movieComments.comments.id(commentId).replies.length - 1
+          ];
+
+    const userDetails = await getUserDetails(
+      userId,
+      savedCommentOrReply.typeComment
+    );
+
+    return res.status(201).json({
+      message: `${type} added successfully`,
+      status: true,
+      data: {
+        ...savedCommentOrReply.toObject(),
+        userDetails,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -691,4 +702,22 @@ exports.likeOrDislikeComment = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+const getUserDetails = async (userId, typeComment) => {
+  const user = await User.findById(userId).lean();
+  if (!user) {
+    return {
+      username: "Unknown User",
+      avatar: null,
+    };
+  }
+
+  return {
+    username: user.username || "Unknown User",
+    avatar:
+      typeComment === "byGoogle"
+        ? user?.inforAccountGoogle?.avatar?.url
+        : user?.avatar?.url || null,
+  };
 };
