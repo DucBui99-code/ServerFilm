@@ -3,7 +3,7 @@ const dotenv = require("dotenv");
 const CryptoJS = require("crypto-js"); // npm install crypto-js
 const moment = require("moment"); // npm install moment
 const qs = require("qs"); // npm install qs
-dotenv.config({ path: "../config.env" });
+dotenv.config({ path: "./.env" });
 
 const {
   EXPIRED_TIME_ORDER,

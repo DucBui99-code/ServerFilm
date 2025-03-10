@@ -1,39 +1,50 @@
-const Redis = require("ioredis");
-const { TIME_WINDOW, LIMIT_CHAT_LIVE } = require("../config/CONSTANT");
-const redis = new Redis({
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
-});
+// const Redis = require("ioredis");
+// const dotenv = require("dotenv");
+// dotenv.config({ path: "./.env" });
 
-const saveCommentToCache = async (movieId, comment) => {
-  await redis.lpush(`comments:${movieId}`, JSON.stringify(comment));
-  redis.expire(`comments:${movieId}`, 3600); // Comment sẽ tự động xóa sau 1h
-};
+// const { TIME_WINDOW, LIMIT_CHAT_LIVE } = require("../config/CONSTANT");
+// const redis = new Redis({
+//   host: process.env.REDIS_HOST || "127.0.0.1",
+//   port: process.env.REDIS_PORT || 6379,
+// });
 
-// Lấy comment từ Redis (không từ DB)
-const getCommentsFromCache = async (movieId) => {
-  return (await redis.lrange(`comments:${movieId}`, 0, -1))
-    .map(JSON.parse)
-    .reverse();
-};
+// redis.on("error", (err) => {
+//   console.error("Redis error:", err);
+// });
 
-const canSendComment = async (userId) => {
-  const key = `chat_limit:${userId}`;
+// redis.on("connect", () => {
+//   console.log("Connected to Redis");
+// });
 
-  // Tăng số lần chat của user
-  const count = await redis.incr(key);
+// const saveCommentToCache = async (movieId, comment) => {
+//   await redis.lpush(`comments:${movieId}`, JSON.stringify(comment));
+//   redis.expire(`comments:${movieId}`, 3600); // Comment sẽ tự động xóa sau 1h
+// };
 
-  if (count === 1) {
-    // Nếu là lần đầu tiên, đặt thời gian hết hạn cho key
-    await redis.expire(key, TIME_WINDOW);
-  }
+// // Lấy comment từ Redis (không từ DB)
+// const getCommentsFromCache = async (movieId) => {
+//   return (await redis.lrange(`comments:${movieId}`, 0, -1))
+//     .map(JSON.parse)
+//     .reverse();
+// };
 
-  // Kiểm tra nếu vượt quá giới hạn
-  if (count > LIMIT_CHAT_LIVE) {
-    return false; // Chặn gửi comment
-  }
+// const canSendComment = async (userId) => {
+//   const key = `chat_limit:${userId}`;
 
-  return true; // Cho phép gửi comment
-};
+//   // Tăng số lần chat của user
+//   const count = await redis.incr(key);
 
-module.exports = { saveCommentToCache, getCommentsFromCache, canSendComment };
+//   if (count === 1) {
+//     // Nếu là lần đầu tiên, đặt thời gian hết hạn cho key
+//     await redis.expire(key, TIME_WINDOW);
+//   }
+
+//   // Kiểm tra nếu vượt quá giới hạn
+//   if (count > LIMIT_CHAT_LIVE) {
+//     return false; // Chặn gửi comment
+//   }
+
+//   return true; // Cho phép gửi comment
+// };
+
+// module.exports = { saveCommentToCache, getCommentsFromCache, canSendComment };

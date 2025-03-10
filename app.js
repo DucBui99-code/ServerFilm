@@ -2,8 +2,6 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http");
-const { createAdapter } = require("@socket.io/redis-adapter");
-const { createClient } = require("redis");
 
 const connectDB = require("./config/database");
 const errorHandler = require("./middlewares/errorHandler");
@@ -11,27 +9,19 @@ const requestLogger = require("./middlewares/requestLogger");
 const rateLimiter = require("./middlewares/rateLimiter");
 const commentSocket = require("./sockets/commentSocket");
 
-dotenv.config({ path: "./config.env" });
+dotenv.config({ path: ".env" });
 
 connectDB();
 
 const app = express();
 const server = http.createServer(app);
 
-const io = require("socket.io")(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
-
-const pubClient = createClient({
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
-});
-const subClient = pubClient.duplicate();
-
-io.adapter(createAdapter(pubClient, subClient));
+// const io = require("socket.io")(server, {
+//   cors: {
+//     origin: "*",
+//     methods: ["GET", "POST"],
+//   },
+// });
 
 app.use(express.json());
 
@@ -44,7 +34,7 @@ app.use(
     credentials: true,
   })
 );
-commentSocket(io);
+// commentSocket(io);
 
 app.use(requestLogger);
 app.use(rateLimiter);

@@ -1,6 +1,5 @@
 const dotenv = require("dotenv");
 const moment = require("moment"); // npm install moment
-dotenv.config({ path: "../config.env" });
 
 const { PackagePrice } = require("../models/PackageMovieModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
@@ -11,7 +10,8 @@ const {
   CheckBillService,
   CancelBillService,
 } = require("../services/paymentService");
-dotenv.config({ path: "../config.env" });
+dotenv.config({ path: "./.env" });
+
 const { PAYMENT_METHODS } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
 

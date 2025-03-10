@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 const User = require("../models/UserModel");
 const { TYPE_LOGIN, LINK_AVATAR_DEFAULT } = require("../config/CONSTANT");
-dotenv.config({ path: "./config.env" });
+dotenv.config({ path: "./.env" });
 
 const socketAuthMiddleware = async (socket, next) => {
   const token = socket.handshake.auth?.token; // Lấy token từ handshake
