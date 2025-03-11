@@ -457,12 +457,22 @@ exports.commentMovie = async (req, res, next) => {
       savedCommentOrReply.typeComment
     );
 
+    let replyToUsername = null;
+    if (type === COMMENT_TYPE.reply && savedCommentOrReply.replyTo) {
+      const replyToUserDetails = await getUserDetails(
+        savedCommentOrReply.replyTo,
+        savedCommentOrReply.typeComment
+      );
+      replyToUsername = replyToUserDetails.username;
+    }
+
     return res.status(201).json({
       message: `${type} added successfully`,
       status: true,
       data: {
         ...savedCommentOrReply.toObject(),
         userDetails,
+        replyToUsername,
       },
     });
   } catch (error) {
