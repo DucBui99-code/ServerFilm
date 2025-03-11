@@ -12,7 +12,7 @@ RUN npm install
 COPY . .
 
 # Expose cổng mà app sẽ chạy (ví dụ: 3000)
-EXPOSE 3000
+EXPOSE 8000
 
 # Chạy ứng dụng
 CMD ["node", "app.js"]
