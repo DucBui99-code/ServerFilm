@@ -19,7 +19,7 @@ const server = http.createServer(app);
 app.options("*", cors()); // Preflight request for all routes
 app.use(
   cors({
-    origin: "https://movie-night-vn.netlify.app",
+    origin: "*",
     methods: ["GET", "PATCH", "POST", "DELETE", "PUT"],
     credentials: true,
   })
