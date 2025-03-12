@@ -27,6 +27,7 @@ app.use(express.json());
 
 app.set("trust proxy", 1);
 
+app.options("*", cors()); // Preflight request for all routes
 app.use(
   cors({
     origin: "*",
@@ -34,6 +35,7 @@ app.use(
     credentials: true,
   })
 );
+
 commentSocket(io);
 
 app.use(requestLogger);
