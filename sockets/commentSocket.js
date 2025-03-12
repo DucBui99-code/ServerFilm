@@ -1,5 +1,4 @@
 const { saveCommentToCache, canSendComment } = require("./dataComments");
-const User = require("../models/UserModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
 const socketAuthMiddleware = require("./socketMiddleware");
 

@@ -2,6 +2,7 @@ const router = require("express").Router();
 const authMiddleware = require("../middlewares/authMiddleware");
 
 const userController = require("../controllers/userController");
+const notificationController = require("../controllers/notificationController");
 const { createUploader } = require("../services/uploadImage");
 
 router.post("/updateInfo", authMiddleware, userController.updateInformation);
@@ -34,6 +35,7 @@ router.post(
   authMiddleware,
   userController.editCommentMovie
 );
+
 router.post(
   "/deleteCommentMovie",
   authMiddleware,
@@ -44,6 +46,24 @@ router.post(
   "/actionCommentMovie",
   authMiddleware,
   userController.likeOrDislikeComment
+);
+
+router.get(
+  "/getMyNotification",
+  authMiddleware,
+  notificationController.getNotification
+);
+
+router.post(
+  "/readNotification",
+  authMiddleware,
+  notificationController.updateIsRead
+);
+
+router.post(
+  "/hidenNotification",
+  authMiddleware,
+  notificationController.updateIsHiden
 );
 
 module.exports = router;

@@ -8,6 +8,7 @@ const errorHandler = require("./middlewares/errorHandler");
 const requestLogger = require("./middlewares/requestLogger");
 const rateLimiter = require("./middlewares/rateLimiter");
 const commentSocket = require("./sockets/commentSocket");
+const notificationSocket = require("./sockets/notificationSocket");
 
 dotenv.config({ path: ".env" });
 
@@ -19,7 +20,7 @@ const server = http.createServer(app);
 app.options("*", cors()); // Preflight request for all routes
 app.use(
   cors({
-    origin: "*",
+    origin: "https://movie-night-vn.netlify.app/",
     methods: ["GET", "PATCH", "POST", "DELETE", "PUT"],
     credentials: true,
   })
@@ -37,6 +38,7 @@ app.use(express.json());
 app.set("trust proxy", 1);
 
 commentSocket(io);
+notificationSocket(io);
 
 app.use(requestLogger);
 app.use(rateLimiter);
