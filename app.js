@@ -21,13 +21,7 @@ const allowedOrigins = ["https://movie-night-vn.netlify.app"];
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, origin); // Chỉ trả về origin hợp lệ
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: allowedOrigins, // Chỉ chấp nhận origin từ danh sách
     credentials: true,
   })
 );
