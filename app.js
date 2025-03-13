@@ -20,16 +20,18 @@ const server = http.createServer(app);
 app.options("*", cors()); // Preflight request for all routes
 app.use(
   cors({
-    origin: "https://movie-night-vn.netlify.app/",
+    origin: "https://movie-night-vn.netlify.app",
     methods: ["GET", "PATCH", "POST", "DELETE", "PUT"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: "*",
+    origin: "https://movie-night-vn.netlify.app",
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
