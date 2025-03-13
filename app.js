@@ -26,6 +26,21 @@ app.use(
   })
 );
 
+app.options("*", (req, res) => {
+  console.log("OPTIONS request:", req.headers);
+  res.header(
+    "Access-Control-Allow-Origin",
+    "https://movie-night-vn.netlify.app"
+  );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, PATCH, POST, DELETE, PUT, OPTIONS"
+  );
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(204);
+});
+
 const io = require("socket.io")(server, {
   cors: {
     origin: "https://movie-night-vn.netlify.app",
