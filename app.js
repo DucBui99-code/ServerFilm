@@ -17,12 +17,17 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-app.options("*", cors()); // Preflight request for all routes
+const allowedOrigins = ["https://movie-night-vn.netlify.app"];
+
 app.use(
   cors({
-    origin: "*",
-    methods: ["GET", "PATCH", "POST", "DELETE", "PUT"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin); // Chỉ trả về origin hợp lệ
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
