@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_HOST=${PRODUCTION_REDIS_HOST}
+      - PRODUCTION_REDIS_HOST=${PRODUCTION_REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - MONGO_URI=${DATABASE_URL}
       - PASSWORD_EMAIL=${PASSWORD_EMAIL}
