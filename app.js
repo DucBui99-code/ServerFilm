@@ -17,18 +17,18 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = ["https://movie-night-vn.netlify.app"];
+const allowedOrigins = ["https://movienight99.netlify.app"];
 
 app.use(
   cors({
-    origin: "*", // Chỉ chấp nhận origin từ danh sách
+    origin: allowedOrigins, // Chỉ chấp nhận origin từ danh sách
     credentials: true,
   })
 );
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: "*",
+    origin: "https://movienight99.netlify.app",
     methods: ["GET", "POST"],
     credentials: true,
   },
