@@ -14,21 +14,26 @@ dotenv.config({ path: ".env" });
 
 connectDB();
 
+const isDevelopment = process.env.NODE_ENV === "development";
+console.log(isDevelopment);
+
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = ["https://movienight99.netlify.app"];
-
 app.use(
   cors({
-    origin: allowedOrigins, // Chỉ chấp nhận origin từ danh sách
+    origin: isDevelopment
+      ? process.env.DEV_ALLOW_URL
+      : process.env.PRODUCTION_ALLOW_URL, // Chỉ chấp nhận origin từ danh sách
     credentials: true,
   })
 );
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: "https://movienight99.netlify.app",
+    origin: isDevelopment
+      ? process.env.DEV_ALLOW_URL
+      : process.env.PRODUCTION_ALLOW_URL,
     methods: ["GET", "POST"],
     credentials: true,
   },

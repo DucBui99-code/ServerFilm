@@ -4,8 +4,12 @@ dotenv.config({ path: "./.env" });
 
 const { TIME_WINDOW, LIMIT_CHAT_LIVE } = require("../config/CONSTANT");
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 const redis = new Redis({
-  host: process.env.REDIS_HOST || "127.0.0.1",
+  host: isDevelopment
+    ? process.env.DEV_REDIS_HOST
+    : process.env.PRODUCTION_REDIS_HOST || "127.0.0.1",
   port: process.env.REDIS_PORT || 6379,
 });
 
