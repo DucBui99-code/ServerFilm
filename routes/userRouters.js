@@ -54,6 +54,12 @@ router.get(
   notificationController.getNotification
 );
 
+router.get(
+  "/getCountNotification",
+  authMiddleware,
+  notificationController.getCountNotification
+);
+
 router.post(
   "/readNotification",
   authMiddleware,

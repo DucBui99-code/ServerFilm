@@ -1,11 +1,30 @@
 const Notification = require("../models/NotificationModel");
 const { TYPE_LOGIN } = require("../config/CONSTANT");
 
+exports.getCountNotification = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+
+    const totalNotifications = await Notification.countDocuments({
+      receiverId: userId,
+      isHiden: { $ne: true },
+      isRead: false,
+    });
+
+    return res.status(200).json({
+      status: true,
+      total: totalNotifications,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getNotification = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 3;
 
     const notifications = await Notification.find({
       receiverId: userId,
@@ -21,7 +40,9 @@ exports.getNotification = async (req, res, next) => {
 
     const totalNotifications = await Notification.countDocuments({
       receiverId: userId,
+      isHiden: { $ne: true },
     });
+
     const response = notifications.map((notification) => ({
       movieData: notification.movieId
         ? {
@@ -35,8 +56,8 @@ exports.getNotification = async (req, res, next) => {
             username: notification.senderId.username,
             avatar:
               notification.userType === TYPE_LOGIN.byGoogle
-                ? notification.senderId.inforAccountGoogle.avatar
-                : notification.senderId.avatar,
+                ? notification.senderId.inforAccountGoogle.avatar.url
+                : notification.senderId.avatar.url,
           }
         : null,
       content: notification.content,

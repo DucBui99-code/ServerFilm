@@ -14,6 +14,8 @@ module.exports = function (io) {
       if (!viewers.has(movieId)) {
         viewers.set(movieId, new Set());
       }
+      console.log("go 2");
+
       viewers.get(movieId).add(socket.id);
       io.emit("viewersCount", { movieId, count: viewers.get(movieId).size });
     });
