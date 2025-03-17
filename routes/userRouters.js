@@ -67,6 +67,12 @@ router.post(
 );
 
 router.post(
+  "/readAllNotification",
+  authMiddleware,
+  notificationController.updateAllIsRead
+);
+
+router.post(
   "/hidenNotification",
   authMiddleware,
   notificationController.updateIsHiden

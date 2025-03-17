@@ -23,7 +23,4 @@ router.post("/removeMySelf", authMiddleware, authController.deleteAccount);
 
 router.post("/logout", authMiddleware, authController.logout);
 
-router.post("/toggleBanUser", authMiddleware, authController.toggleBanUser);
-router.post("/setRoleUser", authMiddleware, authController.setRoleUser);
-
 module.exports = router;

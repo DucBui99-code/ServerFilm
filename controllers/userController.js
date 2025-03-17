@@ -703,11 +703,13 @@ exports.likeOrDislikeComment = async (req, res, next) => {
 
     await movieComments.save({ validateModifiedOnly: true });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: `${typeAction} ${type} successful`,
       status: true,
       likes: reactionTarget.likes,
       disLikes: reactionTarget.disLikes,
+      likesRef: reactionTarget.likesRef,
+      disLikesRef: reactionTarget.disLikesRef,
     });
   } catch (error) {
     next(error);

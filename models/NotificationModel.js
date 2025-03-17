@@ -6,12 +6,10 @@ const NotificationSchema = new Schema({
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Users",
-    required: true,
   },
   receiverId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Users",
-    required: true,
   },
   userType: {
     type: String,
@@ -19,7 +17,6 @@ const NotificationSchema = new Schema({
   },
   content: {
     type: String,
-    required: true,
   },
   isRead: {
     type: Boolean,
@@ -36,10 +33,12 @@ const NotificationSchema = new Schema({
   movieId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "DetailMovie",
+  },
+  type: {
+    type: String,
+    enum: ["reply", "like", "system"],
     required: true,
   },
-
-  type: String,
 });
 
 module.exports = mongoose.model("Notification", NotificationSchema);

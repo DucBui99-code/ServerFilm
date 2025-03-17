@@ -10,6 +10,7 @@ module.exports = function (io) {
     if (socket.user) {
       socket.join(socket.user.userId.toString());
     }
+
     socket.on("newReply", async ({ movieId, replyId, commentId }) => {
       if (!commentId || !replyId || !movieId) {
         return socket.emit("error", "Invalid movieId, replyId, commentId");
@@ -56,8 +57,44 @@ module.exports = function (io) {
           status: true,
         });
       } catch (error) {
-        console.error("Error finding reply:", error);
-        return socket.emit("error", "Server error while finding reply");
+        return socket.emit("error", "Lỗi khi tạo thông báo");
+      }
+    });
+
+    socket.on("newLike", async ({ movieId, userSend, userReceive, type }) => {
+      if (!movieId || !userSend || !userReceive || type) {
+        return socket.emit(
+          "error",
+          "Invalid movieId, userSend, type and userReceive"
+        );
+      }
+
+      try {
+        const commentDoc = await CommentMovie.findOne({
+          movieId,
+        }).lean();
+
+        if (!commentDoc || commentDoc.comments.length === 0) {
+          return socket.emit("error", "Comment or reply not found");
+        }
+
+        const notification = new Notification({
+          receiverId: userReceive,
+          senderId: userSend,
+          movieId,
+          type: "like",
+          isRead: false,
+          userType: type,
+        });
+
+        await notification.save();
+
+        // Gửi thông báo real-time đến user nhận
+        io.to(userReceive.toString()).emit("receiveNotification", {
+          status: true,
+        });
+      } catch (error) {
+        return socket.emit("error", "Lỗi khi tạo thông báo");
       }
     });
 

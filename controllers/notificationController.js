@@ -6,9 +6,15 @@ exports.getCountNotification = async (req, res, next) => {
     const { userId } = req.user;
 
     const totalNotifications = await Notification.countDocuments({
-      receiverId: userId,
-      isHiden: { $ne: true },
-      isRead: false,
+      $or: [
+        { receiverId: userId, isHiden: { $ne: true }, isRead: false },
+        {
+          receiverId: null,
+          type: "system",
+          isHiden: { $ne: true },
+          isRead: false,
+        },
+      ],
     });
 
     return res.status(200).json({
@@ -27,8 +33,10 @@ exports.getNotification = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 3;
 
     const notifications = await Notification.find({
-      receiverId: userId,
-      isHiden: { $ne: true },
+      $or: [
+        { receiverId: userId, isHiden: { $ne: true } }, // Thông báo cá nhân
+        { receiverId: null, type: "system", isHiden: { $ne: true } }, // Thông báo hệ thống
+      ],
     })
       .populate("movieId")
       .populate("senderId")
@@ -43,30 +51,44 @@ exports.getNotification = async (req, res, next) => {
       isHiden: { $ne: true },
     });
 
-    const response = notifications.map((notification) => ({
-      movieData: notification.movieId
-        ? {
-            image: notification.movieId.poster_url,
-            name: notification.movieId.name,
-            slug: notification.movieId.slug,
-          }
-        : null,
-      userSend: notification.senderId
-        ? {
-            username: notification.senderId.username,
-            avatar:
-              notification.userType === TYPE_LOGIN.byGoogle
-                ? notification.senderId.inforAccountGoogle.avatar.url
-                : notification.senderId.avatar.url,
-          }
-        : null,
-      content: notification.content,
-      _id: notification._id,
-      createdAt: notification.createdAt,
-      isRead: notification.isRead,
-      isHiden: notification.isHiden,
-      type: notification.type,
-    }));
+    const response = notifications.map((notification) => {
+      // Kiểm tra nếu đây là thông báo của hệ thống
+      const isSystemNotification =
+        !notification.movieId &&
+        !notification.senderId &&
+        !notification.receiverId &&
+        notification.type === "system";
+
+      return {
+        movieData: notification.movieId
+          ? {
+              image: notification.movieId.poster_url,
+              name: notification.movieId.name,
+              slug: notification.movieId.slug,
+              type: notification.movieId.__t,
+            }
+          : null,
+        userSend: notification.senderId
+          ? {
+              username: notification.senderId.username,
+              avatar:
+                notification.userType === TYPE_LOGIN.byGoogle
+                  ? notification.senderId.inforAccountGoogle.avatar.url
+                  : notification.senderId.avatar.url,
+            }
+          : isSystemNotification
+          ? {
+              username: "System", // Tên hiển thị cho thông báo hệ thống
+            }
+          : null,
+        content: notification.content,
+        _id: notification._id,
+        createdAt: notification.createdAt,
+        isRead: notification.isRead,
+        isHiden: notification.isHiden,
+        type: notification.type,
+      };
+    });
 
     const totalPages = Math.ceil(totalNotifications / limit); // Tính tổng số trang
     const currentPage = Number(page); // Chuyển đổi page thành số
@@ -96,12 +118,13 @@ exports.updateIsRead = async (req, res, next) => {
     if (!notification) {
       return res.status(404).json({ message: "Notification not found" });
     }
-
-    // Kiểm tra xem người dùng có quyền cập nhật không
-    if (notification.receiverId.toString() !== userId) {
-      return res.status(404).json({
-        message: "You don't have permission to update this notification",
-      });
+    if (notification.type !== "system") {
+      // Kiểm tra xem người dùng có quyền cập nhật không
+      if (notification.receiverId.toString() !== userId) {
+        return res.status(404).json({
+          message: "You don't have permission to update this notification",
+        });
+      }
     }
 
     // Cập nhật isRead
@@ -109,6 +132,29 @@ exports.updateIsRead = async (req, res, next) => {
     await notification.save();
 
     res.status(200).json({ message: "Updated successfully", status: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateAllIsRead = async (req, res, next) => {
+  try {
+    const { userId } = req.user; // Lấy userId từ token
+
+    // Cập nhật tất cả thông báo của người dùng và thông báo hệ thống thành đã đọc
+    await Notification.updateMany(
+      {
+        $or: [
+          { receiverId: userId, isRead: false },
+          { receiverId: null, type: "system", isRead: false },
+        ],
+      },
+      { $set: { isRead: true } }
+    );
+
+    res
+      .status(200)
+      .json({ message: "All notifications marked as read", status: true });
   } catch (error) {
     next(error);
   }
@@ -125,12 +171,13 @@ exports.updateIsHiden = async (req, res, next) => {
     if (!notification) {
       return res.status(404).json({ message: "Notification not found" });
     }
-
-    // Kiểm tra quyền cập nhật
-    if (notification.receiverId.toString() !== userId) {
-      return res.status(404).json({
-        message: "You don't have permission to update this notification",
-      });
+    if (notification.type !== "system") {
+      // Kiểm tra quyền cập nhật
+      if (notification.receiverId.toString() !== userId) {
+        return res.status(404).json({
+          message: "You don't have permission to update this notification",
+        });
+      }
     }
 
     // Cập nhật isHiden

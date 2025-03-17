@@ -43,6 +43,8 @@ app.use(express.json());
 
 app.set("trust proxy", 1);
 
+app.set("socketio", io);
+
 commentSocket(io);
 notificationSocket(io);
 
