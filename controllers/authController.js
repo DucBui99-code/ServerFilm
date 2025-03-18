@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const otpGenerator = require("otp-generator");
 const uaParser = require("ua-parser-js");
 const moment = require("moment");
+const { v4 } = require("uuid");
 
 const {
   LIMIT_DEVICE,
@@ -11,20 +12,22 @@ const {
   DEV_URL,
   TYPE_LOGIN,
 } = require("../config/CONSTANT.js");
+
 const filterObj = require("../utils/fillterObject");
 const mailServices = require("../services/mailer");
 const User = require("../models/UserModel.js");
 const resetPassword = require("../templates/Mail/resetPassword.js");
 const otp = require("../templates/Mail/otp");
 const { getDeviceId } = require("../services/getDeviceId.js");
+const redis = require("../config/redis.js");
 const throwError = require("../utils/throwError.js");
 
 const options = {
   expiresIn: EXPIRED_TIME_TOKEN,
 };
 
-const signToken = (userId, typeLogin) =>
-  jwt.sign({ userId, typeLogin }, process.env.JWT_SECRET, options);
+const signToken = (userId, typeLogin, jit) =>
+  jwt.sign({ userId, typeLogin, jit }, process.env.JWT_SECRET, options);
 
 // Register
 exports.register = async (req, res, next) => {
@@ -185,7 +188,7 @@ exports.login = async (req, res, next) => {
 
     await updateDeviceManagement(userDoc, req);
 
-    const token = signToken(userDoc._id, TYPE_LOGIN.byPass);
+    const token = signToken(userDoc._id, TYPE_LOGIN.byPass, v4());
 
     return res.status(200).json({
       status: true,
@@ -294,7 +297,7 @@ exports.deleteAccount = async (req, res, next) => {
 // Logout Acount
 exports.logout = async (req, res, next) => {
   try {
-    const { userId } = req.user;
+    const { userId, jit } = req.user;
     const deviceId = getDeviceId(req);
 
     const userDoc = await User.findById(userId);
@@ -308,6 +311,8 @@ exports.logout = async (req, res, next) => {
       new: true,
       validateModifiedOnly: true,
     });
+
+    await redis.set(`TOKEN_BLACK_LIST_${userId}_${jit}`, 1);
 
     return res.status(200).json({
       status: true,

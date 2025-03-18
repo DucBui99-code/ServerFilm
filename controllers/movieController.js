@@ -6,6 +6,7 @@ const {
   checkRentExpiration,
 } = require("../utils/checkPack");
 const { PATH_IMAGE } = require("../config/CONSTANT");
+const throwError = require("../utils/throwError");
 
 exports.getAllMovies = async (req, res) => {
   try {
@@ -152,28 +153,19 @@ exports.getDetailMovieEpisode = async (req, res) => {
     // Lấy chi tiết phim
     const dataDetailMovie = await DetailMovie.findById(movieId).lean();
     if (!dataDetailMovie) {
-      return res.status(404).json({
-        message: "Detail movie not found",
-        status: false,
-      });
+      throwError("Detail movie not found");
     }
 
     const episodes = dataDetailMovie.episodes?.[0]?.server_data || [];
     const dataEpisodes = episodes[indexEpisode];
 
     if (!dataEpisodes) {
-      return res.status(404).json({
-        message: "Index Episode not found",
-        status: false,
-      });
+      throwError("Index Episode not found");
     }
 
     if (dataDetailMovie.__t === "DetailMovieRent") {
       if (!userId) {
-        return res.status(404).json({
-          message: "Please login to watch",
-          status: false,
-        });
+        throwError("Please login to watch");
       }
       const user = await UserDB.findById(userId).lean();
 
@@ -181,16 +173,10 @@ exports.getDetailMovieEpisode = async (req, res) => {
         dataDetailMovie.isBuyBySingle &&
         checkRentExpiration(user, dataDetailMovie._id)
       ) {
-        return res.status(404).json({
-          message: "Please rent this movie",
-          status: false,
-        });
+        throwError("Please rent this movie");
       }
       if (dataDetailMovie.isBuyByMonth && checkPackMonthExpiration(user)) {
-        return res.status(404).json({
-          message: "Please buy package",
-          status: false,
-        });
+        throwError("Please buy package");
       }
     }
 

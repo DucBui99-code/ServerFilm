@@ -2,6 +2,7 @@ const { COMMENT_TYPE, ACTION_COMMENT_TYPE } = require("../config/CONSTANT");
 const Comment = require("../models/CommentModel");
 const Reply = require("../models/ReplyCommentModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
+const Notification = require("../models/NotificationModel");
 const User = require("../models/UserModel");
 const throwError = require("../utils/throwError");
 
@@ -157,14 +158,16 @@ exports.addCommentOrReply = async (req, res, next) => {
     const { content, movieId, type, commentId, replyId, isTagName } = req.body;
 
     if (!content || !content.trim()) {
-      return res
-        .status(400)
-        .json({ message: "Content is required", status: false });
+      throwError("Content is required");
     }
 
     let newCommentOrReply;
     let userDetails = null;
-    let replyToUsername = null;
+
+    let replyToUser = {
+      username: null,
+      movieId: null,
+    };
 
     // 🔹 Lấy thông tin người dùng
     const user = await User.findById(userId).select("avatar username").lean();
@@ -177,17 +180,13 @@ exports.addCommentOrReply = async (req, res, next) => {
 
     if (type === COMMENT_TYPE.comment) {
       if (!movieId) {
-        return res
-          .status(400)
-          .json({ message: "movieId is required for comments", status: false });
+        throwError("movieId is required");
       }
 
       // 🔹 Kiểm tra xem phim có tồn tại không
       const movieExists = await DetailMovie.exists({ _id: movieId }).lean();
       if (!movieExists) {
-        return res
-          .status(404)
-          .json({ message: "Movie not found", status: false });
+        throwError("Movie not found");
       }
 
       // 🔹 Tạo comment mới
@@ -200,42 +199,43 @@ exports.addCommentOrReply = async (req, res, next) => {
       });
     } else if (type === COMMENT_TYPE.reply) {
       if (!commentId) {
-        return res.status(400).json({
-          message: "commentId is required for replies",
-          status: false,
-        });
+        throwError("commentId is required for replies");
       }
 
       // 🔹 Kiểm tra xem comment có tồn tại không
       const comment = await Comment.findById(commentId).lean();
       if (!comment) {
-        return res
-          .status(404)
-          .json({ message: "Comment not found", status: false });
+        throwError("Comment not found");
       }
 
       let finalReplyTo = null;
 
       if (replyId) {
-        const replyTarget = await Reply.findById(replyId).lean();
-        if (!replyTarget || replyTarget.commentId.toString() !== commentId) {
-          return res
-            .status(404)
-            .json({ message: "Reply target not found", status: false });
+        const replyTarget = await Reply.findById(replyId)
+          .populate({
+            path: "commentId",
+            select: "movieId user",
+            populate: {
+              path: "user",
+              select: "username",
+            },
+          })
+          .lean();
+
+        if (
+          !replyTarget ||
+          replyTarget.commentId._id.toString() !== commentId
+        ) {
+          throwError("Reply target not found");
         }
 
-        if (isTagName) {
-          if (replyTarget.user.toString() !== userId.toString()) {
-            finalReplyTo = replyTarget.user;
-
-            // 🔹 Lấy username của người được reply
-            const replyUser = await User.findById(replyTarget.user)
-              .select("username")
-              .lean();
-            if (replyUser) {
-              replyToUsername = replyUser.username;
-            }
-          }
+        if (
+          isTagName &&
+          replyTarget.user._id.toString() !== userId.toString()
+        ) {
+          finalReplyTo = replyTarget.user;
+          replyToUser.username = replyTarget.commentId.user?.username;
+          replyToUser.movieId = replyTarget.commentId?.movieId;
         }
       }
 
@@ -248,11 +248,20 @@ exports.addCommentOrReply = async (req, res, next) => {
         typeComment: typeLogin,
         replyTo: finalReplyTo,
       });
+
+      if (finalReplyTo) {
+        await sendNotification(
+          finalReplyTo,
+          userId,
+          content,
+          replyToUser.movieId,
+          COMMENT_TYPE.reply,
+          typeLogin,
+          req
+        );
+      }
     } else {
-      return res.status(400).json({
-        message: "Invalid type. Use 'comment' or 'reply'",
-        status: false,
-      });
+      throwError("Invalid type. Use 'comment' or 'reply'");
     }
 
     return res.status(201).json({
@@ -261,7 +270,7 @@ exports.addCommentOrReply = async (req, res, next) => {
       data: {
         ...newCommentOrReply.toObject(),
         userDetails,
-        replyToUsername,
+        replyToUsername: replyToUser.username,
       },
     });
   } catch (error) {
@@ -384,7 +393,7 @@ exports.deleteCommentOrReply = async (req, res, next) => {
 exports.likeOrDislikeComment = async (req, res, next) => {
   try {
     const { commentId, typeAction, type, replyId } = req.body;
-    const { userId } = req.user;
+    const { userId, typeLogin } = req.user;
 
     if (
       !userId ||
@@ -396,83 +405,126 @@ exports.likeOrDislikeComment = async (req, res, next) => {
       throwError("Invalid request data");
     }
 
-    let comment, reactionTarget;
+    let comment;
 
     if (type === COMMENT_TYPE.comment) {
       comment = await Comment.findById(commentId);
       if (!comment) {
         throwError("Comment not found");
       }
-      reactionTarget = comment;
     } else if (type === COMMENT_TYPE.reply) {
       if (!replyId) {
         throwError("replyId is required for replies");
       }
-      comment = await Reply.findById(replyId);
+      comment = await Reply.findById(replyId).populate({
+        path: "commentId",
+        select: "movieId user",
+        populate: {
+          path: "user",
+        },
+      });
       if (!comment) {
         throwError("Reply not found");
       }
-      reactionTarget = comment;
     } else {
       throwError("Invalid type. Use 'comment' or 'reply'");
     }
 
-    const hasLiked = reactionTarget.likesRef.includes(userId);
-    const hasDisliked = reactionTarget.disLikesRef.includes(userId);
+    const hasLiked = comment.likesRef.includes(userId);
+    const hasDisliked = comment.disLikesRef.includes(userId);
 
     if (typeAction === ACTION_COMMENT_TYPE.like) {
       if (hasLiked) {
         // Hủy like nếu đã like trước đó
-        reactionTarget.likesRef = reactionTarget.likesRef.filter(
+        comment.likesRef = comment.likesRef.filter(
           (id) => id.toString() !== userId
         );
-        reactionTarget.likes -= 1;
+        comment.likes -= 1;
       } else {
         // Thêm like
-        reactionTarget.likesRef.push(userId);
-        reactionTarget.likes += 1;
+        comment.likesRef.push(userId);
+        comment.likes += 1;
 
         // Nếu đã dislike trước đó, xóa dislike
         if (hasDisliked) {
-          reactionTarget.disLikesRef = reactionTarget.disLikesRef.filter(
+          comment.disLikesRef = comment.disLikesRef.filter(
             (id) => id.toString() !== userId
           );
-          reactionTarget.disLikes -= 1;
+          comment.disLikes -= 1;
         }
       }
     } else if (typeAction === ACTION_COMMENT_TYPE.disLike) {
       if (hasDisliked) {
         // Hủy dislike nếu đã dislike trước đó
-        reactionTarget.disLikesRef = reactionTarget.disLikesRef.filter(
+        comment.disLikesRef = comment.disLikesRef.filter(
           (id) => id.toString() !== userId
         );
-        reactionTarget.disLikes -= 1;
+        comment.disLikes -= 1;
       } else {
         // Thêm dislike
-        reactionTarget.disLikesRef.push(userId);
-        reactionTarget.disLikes += 1;
+        comment.disLikesRef.push(userId);
+        comment.disLikes += 1;
 
         // Nếu đã like trước đó, xóa like
         if (hasLiked) {
-          reactionTarget.likesRef = reactionTarget.likesRef.filter(
+          comment.likesRef = comment.likesRef.filter(
             (id) => id.toString() !== userId
           );
-          reactionTarget.likes -= 1;
+          comment.likes -= 1;
         }
       }
     }
 
     await comment.save({ validateModifiedOnly: true });
 
+    if (comment.user.toString() !== userId.toString() && !hasLiked) {
+      await sendNotification(
+        comment.user,
+        userId,
+        null,
+        type === COMMENT_TYPE.comment
+          ? comment.movieId
+          : comment.commentId?.movieId,
+        ACTION_COMMENT_TYPE.like,
+        typeLogin,
+        req
+      );
+    }
+
     return res.status(200).json({
       message: `${typeAction} ${type} successful`,
       status: true,
-      likes: reactionTarget.likes,
-      disLikes: reactionTarget.disLikes,
-      likesRef: reactionTarget.likesRef,
-      disLikesRef: reactionTarget.disLikesRef,
+      likes: comment.likes,
+      disLikes: comment.disLikes,
+      likesRef: comment.likesRef,
+      disLikesRef: comment.disLikesRef,
     });
   } catch (error) {
     next(error);
   }
+};
+
+// 🛠 Hàm gửi thông báo
+const sendNotification = async (
+  receiverId,
+  senderId,
+  content,
+  movieId,
+  type,
+  userType,
+  req
+) => {
+  const notification = new Notification({
+    receiverId,
+    senderId,
+    content,
+    movieId,
+    type,
+    userType,
+  });
+
+  await notification.save();
+
+  const io = req.app.get("socketio");
+  io.to(receiverId.toString()).emit("receiveNotification", { status: true });
 };

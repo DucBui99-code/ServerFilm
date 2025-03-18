@@ -8,14 +8,12 @@ const errorHandler = require("./middlewares/errorHandler");
 const requestLogger = require("./middlewares/requestLogger");
 const rateLimiter = require("./middlewares/rateLimiter");
 const commentSocket = require("./sockets/commentSocket");
-const notificationSocket = require("./sockets/notificationSocket");
 
 dotenv.config({ path: ".env" });
 
 connectDB();
 
 const isDevelopment = process.env.NODE_ENV === "development";
-console.log(isDevelopment);
 
 const app = express();
 const server = http.createServer(app);
@@ -46,7 +44,6 @@ app.set("trust proxy", 1);
 app.set("socketio", io);
 
 commentSocket(io);
-notificationSocket(io);
 
 app.use(requestLogger);
 app.use(rateLimiter);

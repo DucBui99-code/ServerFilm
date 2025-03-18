@@ -43,6 +43,7 @@
     "socket.io": "^4.8.1",
     "socket.io-redis": "^5.4.0",
     "ua-parser-js": "^2.0.2",
+    "uuid": "^11.1.0",
     "validator": "^13.11.0",
     "xss": "^1.0.15"
   }

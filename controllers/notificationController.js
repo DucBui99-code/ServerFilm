@@ -1,5 +1,6 @@
 const Notification = require("../models/NotificationModel");
 const { TYPE_LOGIN } = require("../config/CONSTANT");
+const throwError = require("../utils/throwError");
 
 exports.getCountNotification = async (req, res, next) => {
   try {
@@ -116,14 +117,12 @@ exports.updateIsRead = async (req, res, next) => {
     const notification = await Notification.findById(notificationId);
 
     if (!notification) {
-      return res.status(404).json({ message: "Notification not found" });
+      throwError("Notification not found");
     }
     if (notification.type !== "system") {
       // Kiểm tra xem người dùng có quyền cập nhật không
       if (notification.receiverId.toString() !== userId) {
-        return res.status(404).json({
-          message: "You don't have permission to update this notification",
-        });
+        throwError("You don't have permission to update this notification");
       }
     }
 
@@ -169,14 +168,12 @@ exports.updateIsHiden = async (req, res, next) => {
     const notification = await Notification.findById(notificationId);
 
     if (!notification) {
-      return res.status(404).json({ message: "Notification not found" });
+      throwError("Notification not found");
     }
     if (notification.type !== "system") {
       // Kiểm tra quyền cập nhật
       if (notification.receiverId.toString() !== userId) {
-        return res.status(404).json({
-          message: "You don't have permission to update this notification",
-        });
+        throwError("You don't have permission to update this notification");
       }
     }
 

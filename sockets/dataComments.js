@@ -1,25 +1,5 @@
-const Redis = require("ioredis");
-const dotenv = require("dotenv");
-dotenv.config({ path: "./.env" });
-
+const redis = require("../config/redis");
 const { TIME_WINDOW, LIMIT_CHAT_LIVE } = require("../config/CONSTANT");
-
-const isDevelopment = process.env.NODE_ENV === "development";
-
-const redis = new Redis({
-  host: isDevelopment
-    ? process.env.DEV_REDIS_HOST
-    : process.env.PRODUCTION_REDIS_HOST || "127.0.0.1",
-  port: process.env.REDIS_PORT || 6379,
-});
-
-redis.on("error", (err) => {
-  console.error("Redis error:", err);
-});
-
-redis.on("connect", () => {
-  console.log("Connected to Redis");
-});
 
 const saveCommentToCache = async (movieId, comment) => {
   await redis.lpush(`comments:${movieId}`, JSON.stringify(comment));

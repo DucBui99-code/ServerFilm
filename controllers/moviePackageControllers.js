@@ -3,6 +3,7 @@ const { PackagePrice } = require("../models/PackageMovieModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
 
 const User = require("../models/UserModel");
+const throwError = require("../utils/throwError");
 
 exports.createPackage = async (req, res) => {
   const { name, duration, price } = req.body;
@@ -25,7 +26,7 @@ exports.createPackage = async (req, res) => {
   });
 };
 
-exports.getPackage = async (req, res) => {
+exports.getPackage = async (req, res, next) => {
   try {
     const { movieId } = req.query;
     let packageMovieSingle = {};
@@ -51,10 +52,7 @@ exports.getPackage = async (req, res) => {
     const packages = await PackagePrice.find().lean();
 
     if (!packages || packages.length === 0) {
-      return res.status(404).json({
-        status: false,
-        message: "No packages available",
-      });
+      throwError("No packages available");
     }
 
     return res.status(200).json({
@@ -66,23 +64,17 @@ exports.getPackage = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: ["Internal server error", error.message],
-    });
+    next(error);
   }
 };
 
-exports.getTotalPackageMonthDuration = async (req, res) => {
+exports.getTotalPackageMonthDuration = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const user = await User.findById(userId).lean();
 
     if (!user || user.purchasedMoviesMonth.length === 0) {
-      return res.status(400).json({
-        status: false,
-        message: "There is no active package",
-      });
+      throwError("There is no active package");
     }
 
     const now = moment();
@@ -110,9 +102,6 @@ exports.getTotalPackageMonthDuration = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
+    next(error);
   }
 };

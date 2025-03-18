@@ -332,21 +332,3 @@ exports.removeDeviceManagement = async (req, res, next) => {
     next(error);
   }
 };
-
-// const getUserDetails = async (userId, typeComment) => {
-//   const user = await User.findById(userId).lean();
-//   if (!user) {
-//     return {
-//       username: "Unknown User",
-//       avatar: null,
-//     };
-//   }
-
-//   return {
-//     username: user.username || "Unknown User",
-//     avatar:
-//       typeComment === "byGoogle"
-//         ? user?.inforAccountGoogle?.avatar?.url
-//         : user?.avatar?.url || null,
-//   };
-// };

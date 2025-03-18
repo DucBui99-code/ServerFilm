@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 const User = require("../models/UserModel");
+const redis = require("../config/redis");
 
 dotenv.config({ path: "./.env" });
 
@@ -34,6 +35,14 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    const isTokenExitBlackList = await redis.get(
+      `TOKEN_BLACK_LIST_${decoded.userId}_${decoded.jit}`
+    );
+    if (isTokenExitBlackList) {
+      return res
+        .status(401)
+        .json({ message: ["Token revoked"], status: false });
+    }
     req.user = decoded;
     next();
   } catch (err) {
