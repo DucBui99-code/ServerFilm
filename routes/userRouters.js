@@ -2,6 +2,7 @@ const router = require("express").Router();
 const authMiddleware = require("../middlewares/authMiddleware");
 
 const userController = require("../controllers/userController");
+const commentController = require("../controllers/commentController");
 const notificationController = require("../controllers/notificationController");
 const { createUploader } = require("../services/uploadImage");
 
@@ -28,24 +29,28 @@ router.post(
   userController.removeDeviceManagement
 );
 
-router.post("/addCommentMovie", authMiddleware, userController.commentMovie);
+router.post(
+  "/addCommentMovie",
+  authMiddleware,
+  commentController.addCommentOrReply
+);
 
 router.post(
   "/editCommentMovie",
   authMiddleware,
-  userController.editCommentMovie
+  commentController.editCommentOrReply
 );
 
 router.post(
   "/deleteCommentMovie",
   authMiddleware,
-  userController.deleteCommentMovie
+  commentController.deleteCommentOrReply
 );
 
 router.post(
   "/actionCommentMovie",
   authMiddleware,
-  userController.likeOrDislikeComment
+  commentController.likeOrDislikeComment
 );
 
 router.get(

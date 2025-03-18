@@ -2,14 +2,8 @@ const User = require("../models/UserModel");
 const moment = require("moment");
 const cloudinary = require("cloudinary").v2;
 
-const { CommentMovie } = require("../models/CommentModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
-const {
-  PATH_IMAGE,
-  TYPE_LOGIN,
-  ACTION_COMMENT_TYPE,
-  COMMENT_TYPE,
-} = require("../config/CONSTANT");
+const { PATH_IMAGE, TYPE_LOGIN } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
 
 // Get Profile
@@ -51,10 +45,7 @@ exports.getProfile = async (req, res, next) => {
         } else if (typeLogin === TYPE_LOGIN.byPass) {
           dataInforAcc = getUserInfoByPass(user);
         } else {
-          return res.status(400).json({
-            status: false,
-            message: "Invalid type login",
-          });
+          throwError("Invalid type login");
         }
 
         return res.status(200).json({
@@ -147,10 +138,7 @@ exports.getProfile = async (req, res, next) => {
           message: "Get device management successfully",
         });
       default:
-        return res.status(400).json({
-          status: false,
-          message: "Invalid Type",
-        });
+        throwError("Invalid Type");
     }
   } catch (error) {
     next(error);
@@ -172,10 +160,7 @@ exports.updateInformation = async (req, res, next) => {
       !birthDay &&
       !sex
     ) {
-      return res.status(400).json({
-        status: false,
-        message: "Not found information to update",
-      });
+      throwError("Not found information to update");
     }
 
     const user = await User.findById(userId);
@@ -183,10 +168,7 @@ exports.updateInformation = async (req, res, next) => {
     if (phoneNumber) {
       const checkPhoneNumber = await User.findOne({ phoneNumber: phoneNumber });
       if (checkPhoneNumber) {
-        return res.status(429).json({
-          status: false,
-          message: "Phone number is already exit",
-        });
+        throwError("Phone number is already exit", 429);
       }
 
       user.phoneNumber = phoneNumber.trim();
@@ -195,18 +177,12 @@ exports.updateInformation = async (req, res, next) => {
     // Kiểm tra định dạng birthDay
     if (birthDay) {
       if (!moment(birthDay, "MM/DD/YYYY", true).isValid()) {
-        return res.status(400).json({
-          status: false,
-          message: "Invalid birthDay format. Use MM/DD/YYYY",
-        });
+        throwError("Invalid birthDay format. Use MM/DD/YYYY");
       }
 
       // Kiểm tra birthDay không nằm trong tương lai
       if (moment(birthDay, "MM/DD/YYYY").isAfter(moment())) {
-        return res.status(400).json({
-          status: false,
-          message: "BirthDay cannot be in the future",
-        });
+        throwError("BirthDay cannot be in the future");
       }
 
       user.birthDay = birthDay.trim();
@@ -220,10 +196,7 @@ exports.updateInformation = async (req, res, next) => {
     if (username) {
       const findUserByUsername = await User.findOne({ username: username });
       if (findUserByUsername) {
-        return res.status(429).json({
-          status: false,
-          message: "Username is already exits",
-        });
+        throwError("Username is already exits", 429);
       }
       user.username = username.trim();
     }
@@ -248,10 +221,7 @@ exports.upLoadAvatar = async (req, res, next) => {
 
     // Kiểm tra nếu không có file
     if (!req.files.avatar || req.files.avatar.length === 0) {
-      return res.status(400).json({
-        status: false,
-        message: "Avatar file not found",
-      });
+      throwError("Avatar file not found");
     }
 
     const fileImage = req.files.avatar[0];
@@ -259,10 +229,9 @@ exports.upLoadAvatar = async (req, res, next) => {
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
     if (!allowedTypes.includes(fileImage.mimetype)) {
       await cloudinary.uploader.destroy(fileImage.filename);
-      return res.status(400).json({
-        status: false,
-        message: "Only .jpeg, .jpg, .png, and .gif formats are allowed!",
-      });
+      return throwError(
+        "Only .jpeg, .jpg, .png, and .gif formats are allowed!"
+      );
     }
 
     const user = await User.findById(userId);
@@ -296,18 +265,12 @@ exports.toggleFavoriteMovie = async (req, res, next) => {
     const { movieId, action } = req.body;
 
     if (!["add", "remove"].includes(action)) {
-      return res.status(400).json({
-        message: "Invalid action. Use 'add' or 'remove'",
-        status: false,
-      });
+      throwError("Invalid action. Use 'add' or 'remove'");
     }
 
     const movie = await DetailMovie.findById(movieId);
     if (!movie) {
-      return res.status(404).json({
-        message: "Movie not found",
-        status: false,
-      });
+      throwError("Movie not found");
     }
 
     const user = await User.findById(userId);
@@ -318,18 +281,12 @@ exports.toggleFavoriteMovie = async (req, res, next) => {
 
     if (action === "add") {
       if (index !== -1) {
-        return res.status(400).json({
-          message: "Movie has already been added to favorites list",
-          status: false,
-        });
+        throwError("Movie has already been added to favorites list");
       }
       user.favoriteMovies.push({ movieId });
     } else if (action === "remove") {
       if (index === -1) {
-        return res.status(400).json({
-          message: "Movie is not in favorites list",
-          status: false,
-        });
+        throwError("Movie is not in favorites list");
       }
       user.favoriteMovies.splice(index, 1);
     }
@@ -360,10 +317,7 @@ exports.removeDeviceManagement = async (req, res, next) => {
     );
 
     if (deviceIndex === -1) {
-      return res.status(404).json({
-        message: "Device not found",
-        status: false,
-      });
+      throwError("Device not found");
     }
 
     user.deviceManagement.splice(deviceIndex, 1);
@@ -379,357 +333,20 @@ exports.removeDeviceManagement = async (req, res, next) => {
   }
 };
 
-exports.commentMovie = async (req, res, next) => {
-  try {
-    const { userId, typeLogin } = req.user;
-    const { content, movieId, type, commentId, replyTo } = req.body;
+// const getUserDetails = async (userId, typeComment) => {
+//   const user = await User.findById(userId).lean();
+//   if (!user) {
+//     return {
+//       username: "Unknown User",
+//       avatar: null,
+//     };
+//   }
 
-    if (!movieId || !content || !content.trim()) {
-      throwError("movieId and content are required");
-    }
-
-    const movieExists = await DetailMovie.exists({ _id: movieId });
-    if (!movieExists) {
-      throwError("Not found movie to comment");
-    }
-
-    let movieComments = await CommentMovie.findOne({ movieId });
-    if (!movieComments) {
-      movieComments = new CommentMovie({ movieId, comments: [] });
-    }
-
-    let newCommentOrReply;
-    if (type === COMMENT_TYPE.comment) {
-      newCommentOrReply = {
-        user: userId,
-        content,
-        likes: 0,
-        disLikes: 0,
-        time: Date.now(),
-        edited: false,
-        replies: [],
-        typeComment: typeLogin,
-      };
-      movieComments.comments.push(newCommentOrReply);
-    } else if (type === COMMENT_TYPE.reply) {
-      if (!commentId) {
-        throwError("commentId is required for replies");
-      }
-
-      const comment = movieComments.comments.id(commentId);
-      if (!comment) {
-        throwError("Not found comment to reply");
-      }
-
-      newCommentOrReply = {
-        user: userId,
-        content,
-        time: Date.now(),
-        edited: false,
-        likes: 0,
-        disLikes: 0,
-        typeComment: typeLogin,
-      };
-
-      if (replyTo) {
-        const replyToData = comment.replies.id(replyTo);
-        if (replyToData && replyToData.user.toString() !== userId.toString()) {
-          newCommentOrReply.replyTo = replyToData.user;
-        }
-      }
-
-      comment.replies.push(newCommentOrReply);
-    } else {
-      throwError("Invalid type. Use 'comment' or 'reply'");
-    }
-
-    await movieComments.save({ validateModifiedOnly: true });
-
-    const savedCommentOrReply =
-      type === COMMENT_TYPE.comment
-        ? movieComments.comments[movieComments.comments.length - 1]
-        : movieComments.comments.id(commentId).replies[
-            movieComments.comments.id(commentId).replies.length - 1
-          ];
-
-    const userDetails = await getUserDetails(
-      userId,
-      savedCommentOrReply.typeComment
-    );
-
-    let replyToUsername = null;
-    if (type === COMMENT_TYPE.reply && savedCommentOrReply.replyTo) {
-      const replyToUserDetails = await getUserDetails(
-        savedCommentOrReply.replyTo,
-        savedCommentOrReply.typeComment
-      );
-      replyToUsername = replyToUserDetails.username;
-    }
-
-    return res.status(201).json({
-      message: `${type} added successfully`,
-      status: true,
-      data: {
-        ...savedCommentOrReply.toObject(),
-        userDetails,
-        replyToUsername,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.editCommentMovie = async (req, res, next) => {
-  try {
-    const { userId } = req.user;
-    const { movieId, content, commentId, type, replyId, replyTo } = req.body;
-
-    if (!movieId || !content || !content.trim()) {
-      throwError("movieId and content are required");
-    }
-
-    const commentMovieDb = await CommentMovie.findOne({ movieId });
-
-    if (!commentMovieDb) {
-      throwError("Not found commentMovie");
-    }
-
-    if (type === COMMENT_TYPE.comment) {
-      // 🔹 Tìm comment trong danh sách comments
-      const comment = commentMovieDb.comments.id(commentId);
-      if (!comment) {
-        throwError("Not found comment to edit");
-      }
-
-      // 🔹 Kiểm tra quyền chỉnh sửa
-      if (comment.user.toString() !== userId.toString()) {
-        throwError("This is not your comment");
-      }
-
-      // 🔹 Cập nhật nội dung comment
-      comment.content = content;
-      comment.time = Date.now();
-      comment.edited = true;
-    } else if (type === COMMENT_TYPE.reply) {
-      if (!replyId) {
-        throwError("Not found replyId");
-      }
-
-      // 🔹 Tìm comment chứa reply
-      const comment = commentMovieDb.comments.id(commentId);
-      if (!comment) {
-        throwError("Not found comment to edit reply");
-      }
-
-      // 🔹 Tìm reply trong danh sách replies
-      const reply = comment.replies.id(replyId);
-      if (!reply) {
-        throwError("Not found reply to edit");
-      }
-
-      // 🔹 Kiểm tra quyền chỉnh sửa
-      if (reply.user.toString() !== userId.toString()) {
-        throwError("This is not your reply");
-      }
-
-      // 🔹 Cập nhật nội dung reply
-      reply.content = content;
-      reply.time = Date.now();
-      reply.edited = true;
-
-      // 🔹 Nếu có `replyTo`, kiểm tra và cập nhật
-      if (replyTo) {
-        const replyToData = comment.replies.id(replyTo);
-        if (replyToData && replyToData.user.toString() !== userId.toString()) {
-          reply.replyTo = replyToData.user;
-        }
-      }
-    } else {
-      throwError("Invalid type. Use 'comment' or 'reply'");
-    }
-
-    // 🔹 Lưu thay đổi vào database
-    await commentMovieDb.save({ validateModifiedOnly: true });
-
-    return res
-      .status(200)
-      .json({ message: `Edit ${type} successfully`, status: true });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.deleteCommentMovie = async (req, res, next) => {
-  try {
-    const { userId } = req.user;
-    const { movieId, commentId, type, replyId } = req.body;
-
-    if (!movieId || !commentId) {
-      throwError("movieId and commentId are required");
-    }
-
-    const commentMovieDb = await CommentMovie.findOne({ movieId });
-    if (!commentMovieDb) {
-      throwError("Not found Comment");
-    }
-
-    if (type === COMMENT_TYPE.comment) {
-      // 🔹 Tìm comment theo id
-      const comment = commentMovieDb.comments.id(commentId);
-      if (!comment) {
-        return res
-          .status(404)
-          .json({ message: "Not found comment to delete", status: false });
-      }
-
-      // 🔹 Kiểm tra quyền sở hữu
-      if (comment.user.toString() !== userId.toString()) {
-        throwError("This is not your comment");
-      }
-
-      // 🔹 Xóa comment
-      comment.deleteOne();
-    } else if (type === COMMENT_TYPE.reply) {
-      if (!replyId) {
-        throwError("Not found replyId");
-      }
-
-      // 🔹 Tìm comment chứa reply
-      const comment = commentMovieDb.comments.id(commentId);
-      if (!comment) {
-        throwError("Not found comment to delete reply");
-      }
-
-      // 🔹 Tìm reply trong danh sách replies
-      const reply = comment.replies.id(replyId);
-      if (!reply) {
-        throwError("Not found reply to delete");
-      }
-
-      // 🔹 Kiểm tra quyền sở hữu
-      if (reply.user.toString() !== userId.toString()) {
-        throwError("This is not your reply");
-      }
-
-      // 🔹 Xóa reply
-      reply.deleteOne();
-    } else {
-      throwError("Invalid type. Use 'comment' or 'reply'");
-    }
-
-    await commentMovieDb.save({ validateModifiedOnly: true });
-
-    return res
-      .status(200)
-      .json({ message: `Delete ${type} successfully`, status: true });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.likeOrDislikeComment = async (req, res, next) => {
-  try {
-    const { movieId, commentId, typeAction, type, replyId } = req.body;
-    const { userId } = req.user;
-
-    if (
-      !userId ||
-      !movieId ||
-      !commentId ||
-      ![ACTION_COMMENT_TYPE.like, ACTION_COMMENT_TYPE.disLike].includes(
-        typeAction
-      )
-    ) {
-      throwError("Invalid request data");
-    }
-
-    const movieComments = await CommentMovie.findOne({ movieId });
-    if (!movieComments) {
-      throwError("Comments not found");
-    }
-
-    let comment, reactionTarget;
-
-    if (type === COMMENT_TYPE.comment) {
-      comment = movieComments.comments.id(commentId);
-      if (!comment) {
-        throwError("Comment not found");
-      }
-      reactionTarget = comment;
-    } else if (type === COMMENT_TYPE.reply) {
-      if (!replyId) {
-        throwError("replyId is required for replies");
-      }
-      comment = movieComments.comments.id(commentId);
-      if (!comment) {
-        throwError("Comment not found");
-      }
-      const reply = comment.replies.id(replyId);
-      if (!reply) {
-        throwError("Reply not found");
-      }
-      reactionTarget = reply;
-    } else {
-      throwError("Invalid type. Use 'comment' or 'reply'");
-    }
-
-    const hasLiked = reactionTarget.likesRef.includes(userId);
-    const hasDisliked = reactionTarget.disLikesRef.includes(userId);
-
-    const updateReaction = (add, remove, countField, refField) => {
-      if (add) {
-        reactionTarget[refField].push(userId);
-        reactionTarget[countField] += 1;
-      } else {
-        reactionTarget[refField] = reactionTarget[refField].filter(
-          (id) => id.toString() !== userId
-        );
-        reactionTarget[countField] -= 1;
-      }
-    };
-
-    if (typeAction === ACTION_COMMENT_TYPE.like) {
-      updateReaction(!hasLiked, hasDisliked, "likes", "likesRef");
-      if (hasDisliked) {
-        updateReaction(false, true, "disLikes", "disLikesRef");
-      }
-    } else if (typeAction === ACTION_COMMENT_TYPE.disLike) {
-      updateReaction(!hasDisliked, hasLiked, "disLikes", "disLikesRef");
-      if (hasLiked) {
-        updateReaction(false, true, "likes", "likesRef");
-      }
-    }
-
-    await movieComments.save({ validateModifiedOnly: true });
-
-    return res.status(200).json({
-      message: `${typeAction} ${type} successful`,
-      status: true,
-      likes: reactionTarget.likes,
-      disLikes: reactionTarget.disLikes,
-      likesRef: reactionTarget.likesRef,
-      disLikesRef: reactionTarget.disLikesRef,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getUserDetails = async (userId, typeComment) => {
-  const user = await User.findById(userId).lean();
-  if (!user) {
-    return {
-      username: "Unknown User",
-      avatar: null,
-    };
-  }
-
-  return {
-    username: user.username || "Unknown User",
-    avatar:
-      typeComment === "byGoogle"
-        ? user?.inforAccountGoogle?.avatar?.url
-        : user?.avatar?.url || null,
-  };
-};
+//   return {
+//     username: user.username || "Unknown User",
+//     avatar:
+//       typeComment === "byGoogle"
+//         ? user?.inforAccountGoogle?.avatar?.url
+//         : user?.avatar?.url || null,
+//   };
+// };

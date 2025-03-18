@@ -16,6 +16,11 @@ router.get(
   authMiddlewareNoReturn,
   commentController.getCommentsByMovie
 );
+router.get(
+  "/getReplyComments/:commentId",
+  authMiddlewareNoReturn,
+  commentController.getRepliesByComment
+);
 router.get("/getLiveComments/:movieId", liveCommentController.getCommentLive);
 router.post(
   "/getMovieEpisode",

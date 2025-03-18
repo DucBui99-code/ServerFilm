@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
 
-const commentSchema = new mongoose.Schema({
-  movieId: {
+const replySchema = new mongoose.Schema({
+  commentId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "DetailMovie",
+    ref: "Comment",
     required: true,
   },
   user: { type: mongoose.Schema.Types.ObjectId, ref: "Users", required: true },
@@ -14,8 +14,13 @@ const commentSchema = new mongoose.Schema({
   disLikes: { type: Number, default: 0 },
   time: { type: Date, default: Date.now },
   edited: { type: Boolean, default: false },
+  replyTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Users",
+    required: false,
+  },
   typeComment: { type: String, enum: ["byGoogle", "byPass"] },
 });
 
-const Comment = mongoose.model("Comment", commentSchema);
-module.exports = Comment;
+const Reply = mongoose.model("Reply", replySchema);
+module.exports = Reply;
