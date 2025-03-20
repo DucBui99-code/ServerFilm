@@ -12,11 +12,10 @@ const billSchema = new mongoose.Schema(
     packageName: { type: String, required: true },
     packageType: {
       type: String,
-      emun: PACKAGE_TYPE,
+      enum: PACKAGE_TYPE,
     },
     isApplied: { type: Boolean },
-    quantity: { type: Number, required: true, default: 1 },
-    totalAmount: { type: Number, required: true },
+    price: { type: Number, required: true },
     paymentMethod: {
       type: String,
       enum: PAYMENT_METHODS,
@@ -28,7 +27,6 @@ const billSchema = new mongoose.Schema(
       default: "pending",
     },
     transactionId: { type: String },
-    paymentTime: { type: Date },
     refundStatus: {
       type: String,
       enum: ["none", "pending", "completed"],
@@ -37,20 +35,21 @@ const billSchema = new mongoose.Schema(
     orderStatus: {
       type: String,
       enum: ["processing", "completed", "cancelled"],
-      default: "processing",
+      default: "completed",
     },
     note: { type: String },
     logs: [
       {
         status: String,
         message: String,
-        timestamp: { type: Date, default: Date.now },
+        timestamp: { type: Date, default: Date.now }, // ✅ Giữ nguyên mặc định
       },
     ],
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
+    createdAt: { type: Date, default: Date.now }, // ✅ Giữ nguyên mặc định
+    paidAt: { type: Date, default: null },
+    updatedAt: { type: Date, default: Date.now }, // ✅ Giữ nguyên mặc định
   },
-  { timestamps: true } // Tự động tạo createdAt và updatedAt
+  { timestamps: true } // ✅ Mongoose sẽ tự động tạo `createdAt` và `updatedAt`
 );
 
 module.exports = mongoose.model("Bill", billSchema);

@@ -7,12 +7,13 @@ const connectDB = require("./config/database");
 const errorHandler = require("./middlewares/errorHandler");
 const requestLogger = require("./middlewares/requestLogger");
 const rateLimiter = require("./middlewares/rateLimiter");
-const commentSocket = require("./sockets/commentSocket");
+const { initSocket } = require("./config/socket"); // Import socket
+const { commentLiveSocket } = require("./sockets/commentSocket");
+const checkExpiredBills = require("./jobs/cronJobCheckPayment");
 
 dotenv.config({ path: ".env" });
 
 connectDB();
-
 const isDevelopment = process.env.NODE_ENV === "development";
 
 const app = express();
@@ -27,23 +28,14 @@ app.use(
   })
 );
 
-const io = require("socket.io")(server, {
-  cors: {
-    origin: isDevelopment
-      ? process.env.DEV_ALLOW_URL
-      : process.env.PRODUCTION_ALLOW_URL,
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
+// Khởi động Socket.io
+initSocket(server);
+commentLiveSocket();
+checkExpiredBills();
 
 app.use(express.json());
 
 app.set("trust proxy", 1);
-
-app.set("socketio", io);
-
-commentSocket(io);
 
 app.use(requestLogger);
 app.use(rateLimiter);

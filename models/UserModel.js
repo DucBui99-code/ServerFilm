@@ -129,29 +129,6 @@ const UserSchema = new mongoose.Schema(
       },
     ],
 
-    purchasedHistory: [
-      {
-        name: String,
-        price: Number,
-        purchaseDate: String,
-        status: {
-          type: String,
-          enum: STATUS,
-          default: "pending",
-        },
-        transactionId: String,
-        packageType: {
-          type: String,
-          emun: PACKAGE_TYPE,
-        },
-        paymentMethod: {
-          type: String,
-          enum: PAYMENT_METHODS,
-          required: true,
-        },
-      },
-    ],
-
     favoriteMovies: [
       {
         movieId: {

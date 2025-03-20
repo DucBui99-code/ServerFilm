@@ -5,43 +5,20 @@ const { PackagePrice } = require("../models/PackageMovieModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
 const User = require("../models/UserModel");
 const {
-  CreateBillService,
+  CreateBillServiceZalo,
   ResultBillFromZaloService,
-  CheckBillService,
-  CancelBillService,
-} = require("../services/paymentService");
+} = require("../services/paymentServices/paymentZaloService");
+const {
+  CreateBillServiceSeapay,
+  ResultBillFromSepayService,
+} = require("../services/paymentServices/paymentSepayServices");
 dotenv.config({ path: "./.env" });
 
 const { PAYMENT_METHODS } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
-
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-
-exports.getPayMent = async (req, res) => {
-  try {
-    const signature = req.headers["x-sepay-signature"]; // Header chứa chữ ký
-    const payload = req.body;
-
-    console.log("Received Webhook:", payload);
-    // Xác minh chữ ký webhook (nếu SePay hỗ trợ)
-    if (signature !== WEBHOOK_SECRET) {
-      return res.status(401).json({ message: "Unauthorized webhook" });
-    }
-
-    // Xử lý thông tin giao dịch
-    if (payload && payload.transaction_status === "SUCCESS") {
-      console.log(
-        `🔹 Giao dịch thành công: ${payload.amount} VND từ ${payload.sender_name}`
-      );
-
-      // Cập nhật vào cơ sở dữ liệu, gửi thông báo,...
-    }
-
-    res.status(200).json({ message: "Webhook received" });
-  } catch (error) {
-    res.status(500).json({ message: error.message, status: false });
-  }
-};
+const {
+  CancelBillService,
+} = require("../services/paymentServices/billServices");
 
 exports.createBillPackMonth = async (req, res, next) => {
   try {
@@ -63,19 +40,33 @@ exports.createBillPackMonth = async (req, res, next) => {
     const namePackage = packageData.name;
     const pricePackage = packageData.price;
     const transID = Math.floor(Math.random() * 1000000);
-    const transactionId = `${moment().format("YYMMDD")}_${transID}`;
+    const transactionId = `${moment().format("YYMMDD")}${transID}`;
 
-    const resBill = await CreateBillService(
-      userId,
-      namePackage,
-      pricePackage,
-      transID,
-      paymentMethod,
-      packageId,
-      "packageMonth",
-      transactionId,
-      next
-    );
+    let resBill = null;
+    if (paymentMethod === "ZaloPay") {
+      resBill = await CreateBillServiceZalo(
+        userId,
+        namePackage,
+        pricePackage,
+        paymentMethod,
+        packageId,
+        "packageMonth",
+        transactionId,
+        next
+      );
+    } else if (paymentMethod === "Bank") {
+      resBill = await CreateBillServiceSeapay(
+        userId,
+        namePackage,
+        pricePackage,
+        transID,
+        paymentMethod,
+        packageId,
+        "packageMonth",
+        transactionId,
+        next
+      );
+    }
 
     return res.status(200).json({
       status: true,
@@ -129,19 +120,33 @@ exports.createBillPackRent = async (req, res, next) => {
     const namePackage = dataMovie.name;
     const pricePackage = dataMovie.price;
     const transID = Math.floor(Math.random() * 1000000);
-    const transactionId = `${moment().format("YYMMDD")}_${transID}`;
+    const transactionId = `${moment().format("YYMMDD")}${transID}`;
 
-    const resBill = await CreateBillService(
-      userId,
-      namePackage,
-      pricePackage,
-      transID,
-      paymentMethod,
-      packageId,
-      "packageRent",
-      transactionId,
-      next
-    );
+    let resBill = null;
+
+    if (paymentMethod === "ZaloPay") {
+      resBill = await CreateBillServiceZalo(
+        userId,
+        namePackage,
+        pricePackage,
+        paymentMethod,
+        packageId,
+        "packageRent",
+        transactionId,
+        next
+      );
+    } else if (paymentMethod === "Bank") {
+      resBill = await CreateBillServiceSeapay(
+        userId,
+        namePackage,
+        pricePackage,
+        paymentMethod,
+        packageId,
+        "packageRent",
+        transactionId,
+        next
+      );
+    }
 
     return res.status(200).json({
       status: true,
@@ -165,18 +170,27 @@ exports.resultBillFromZalo = async (req, res, next) => {
   }
 };
 
-exports.checkBill = async (req, res, next) => {
+exports.resultBillFromSepay = async (req, res, next) => {
   try {
-    const { userId } = req.user;
-    const { transactionId } = req.body;
-    const resCheckBill = await CheckBillService(userId, transactionId, next);
-    return res.status(200).json({
-      status: true,
-      message: "Created order successfully",
-      data: { ...resCheckBill },
-    });
+    const payload = req.body;
+    const authorization = req.headers["authorization"];
+
+    if (!authorization || !authorization.startsWith("Apikey ")) {
+      return next({ message: "Unauthorized", statusCode: 400 });
+    }
+
+    // ✅ Lấy API Key
+    const apiKey = authorization.replace("Apikey ", "");
+
+    if (apiKey !== process.env.API_KEY_SEPAY) {
+      return next({ message: "API_KEY_SEPAY wrong", statusCode: 400 });
+    }
+
+    // ✅ Xử lý logic
+    const result = await ResultBillFromSepayService(payload, next);
+    return res.status(200).json(result);
   } catch (error) {
-    next(error);
+    next(error); // 🚀 Chỉ gọi next(error) để middleware `errorHandler` xử lý
   }
 };
 
@@ -198,7 +212,7 @@ const handelCheckPayMethod = (paymentMethod) => {
   if (!PAYMENT_METHODS.includes(paymentMethod)) {
     return { valid: false, message: "Payment method is not valid" };
   }
-  if (paymentMethod !== "ZaloPay") {
+  if (paymentMethod !== "ZaloPay" && paymentMethod !== "Bank") {
     return {
       valid: false,
       message: "This payment method is not supported yet",

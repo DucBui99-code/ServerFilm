@@ -4,14 +4,15 @@ const EXPIRED_TIME_TOKEN = "1h";
 const NUMBER_OTP_GENERATE = 6;
 const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
 const DEV_URL = "http://localhost:3000";
-const EXPIRED_TIME_ORDER = 5 * 60; // 5 minutes
+const EXPIRED_TIME_ORDER = 5; // 5 minutes
+const TIME_CHECK_BILL = 10;
 const TYPE_LOGIN = {
   byGoogle: "byGoogle",
   byPass: "byPass",
 };
 const URL_CHECK_BILL = "https://sb-openapi.zalopay.vn/v2/query";
 const URL_CREATE_BILL = "https://sb-openapi.zalopay.vn/v2/create";
-const PAYMENT_METHODS = ["ZaloPay", "MoMo", "ATMCard"];
+const PAYMENT_METHODS = ["ZaloPay", "MoMo", "ATMCard", "Bank"];
 const PACKAGE_TYPE = ["packageMonth", "packageRent"];
 const STATUS = ["pending", "completed", "failed"];
 const ACTION_COMMENT_TYPE = {
@@ -47,4 +48,5 @@ module.exports = {
   LINK_AVATAR_DEFAULT,
   LIMIT_CHAT_LIVE,
   TIME_WINDOW,
+  TIME_CHECK_BILL,
 };

@@ -3,6 +3,7 @@ const moment = require("moment");
 const cloudinary = require("cloudinary").v2;
 
 const { DetailMovie } = require("../models/DetailMovieModel");
+const BIll = require("../models/BillModel");
 const { PATH_IMAGE, TYPE_LOGIN } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
 
@@ -12,7 +13,7 @@ exports.getProfile = async (req, res, next) => {
     const { userId, typeLogin } = req.user;
     const { type } = req.query;
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).lean();
 
     switch (type) {
       case "0":
@@ -55,21 +56,33 @@ exports.getProfile = async (req, res, next) => {
         });
       case "1":
         const { page = 1, limit = 10 } = req.query;
-        const startIndex = (page - 1) * limit;
-        const endIndex = page * limit;
 
-        const paginatedHistory = user.purchasedHistory
-          .slice()
-          .reverse()
-          .slice(startIndex, endIndex);
+        const bills = await BIll.find({ userId })
+          .select(
+            "packageType _id paymentMethod price paymentStatus createdAt packageName"
+          )
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(parseInt(limit))
+          .lean();
+
+        const totalItems = await BIll.countDocuments({ userId });
+        const totalPages = Math.ceil(totalItems / limit);
+
+        const formattedBills = bills.map((bill) => ({
+          ...bill,
+          createdAt: moment(bill.createdAt)
+            .utcOffset("+07:00")
+            .format("YYYY-MM-DD HH:mm:ss"),
+        }));
 
         return res.status(200).json({
           status: true,
-          data: paginatedHistory,
+          data: formattedBills,
           message: "Get history purchase successfully",
-          currentPage: page,
-          totalPages: Math.ceil(user.purchasedHistory.length / limit),
-          totalItems: user.purchasedHistory.length,
+          currentPage: parseInt(page),
+          totalPages,
+          totalItems,
         });
       case "2":
         user.purchasedMoviesMonth = user.purchasedMoviesMonth.map((movie) => ({

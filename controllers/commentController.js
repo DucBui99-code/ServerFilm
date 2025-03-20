@@ -5,6 +5,7 @@ const { DetailMovie } = require("../models/DetailMovieModel");
 const Notification = require("../models/NotificationModel");
 const User = require("../models/UserModel");
 const throwError = require("../utils/throwError");
+const { getIo } = require("../config/socket");
 
 exports.getCommentsByMovie = async (req, res, next) => {
   try {
@@ -256,8 +257,7 @@ exports.addCommentOrReply = async (req, res, next) => {
           content,
           replyToUser.movieId,
           COMMENT_TYPE.reply,
-          typeLogin,
-          req
+          typeLogin
         );
       }
     } else {
@@ -397,7 +397,6 @@ exports.likeOrDislikeComment = async (req, res, next) => {
 
     if (
       !userId ||
-      !commentId ||
       ![ACTION_COMMENT_TYPE.like, ACTION_COMMENT_TYPE.disLike].includes(
         typeAction
       )
@@ -408,6 +407,10 @@ exports.likeOrDislikeComment = async (req, res, next) => {
     let comment;
 
     if (type === COMMENT_TYPE.comment) {
+      if (!commentId) {
+        throwError("Invalid request data");
+      }
+
       comment = await Comment.findById(commentId);
       if (!comment) {
         throwError("Comment not found");
@@ -486,8 +489,7 @@ exports.likeOrDislikeComment = async (req, res, next) => {
           ? comment.movieId
           : comment.commentId?.movieId,
         ACTION_COMMENT_TYPE.like,
-        typeLogin,
-        req
+        typeLogin
       );
     }
 
@@ -511,20 +513,27 @@ const sendNotification = async (
   content,
   movieId,
   type,
-  userType,
-  req
+  userType
 ) => {
-  const notification = new Notification({
-    receiverId,
-    senderId,
-    content,
-    movieId,
-    type,
-    userType,
-  });
+  try {
+    const notification = new Notification({
+      receiverId,
+      senderId,
+      content,
+      movieId,
+      type,
+      userType,
+    });
 
-  await notification.save();
+    await notification.save();
 
-  const io = req.app.get("socketio");
-  io.to(receiverId.toString()).emit("receiveNotification", { status: true });
+    const io = getIo(); // 🔥 Lấy instance của Socket.io
+    io.to(`user_${receiverId.toString()}`).emit("receiveNotification", {
+      status: true,
+    });
+
+    console.log(`📩 Gửi thông báo đến user ${receiverId}`);
+  } catch (error) {
+    console.error("❌ Lỗi khi gửi thông báo:", error);
+  }
 };
