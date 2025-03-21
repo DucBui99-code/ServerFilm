@@ -11,6 +11,7 @@ const {
   NUMBER_OTP_GENERATE,
   DEV_URL,
   TYPE_LOGIN,
+  MAX_AGE_COOKIE,
 } = require("../config/CONSTANT.js");
 
 const filterObj = require("../utils/fillterObject");
@@ -153,6 +154,42 @@ exports.verifyOTP = async (req, res, next) => {
   }
 };
 
+exports.getMe = async (req, res, next) => {
+  try {
+    const { userId, typeLogin } = req.user;
+
+    const user = await User.findById(userId)
+      .select("avatar username inforAccountGoogle email")
+      .lean();
+
+    if (!user) {
+      throwError("User not found");
+    }
+
+    let avatar = null;
+    if (typeLogin === TYPE_LOGIN.byGoogle) {
+      avatar = user.inforAccountGoogle?.avatar || null;
+    } else if (typeLogin === TYPE_LOGIN.byPass) {
+      avatar = user.avatar || null;
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "User information retrieved successfully",
+      data: {
+        userInfo: {
+          username: user.username,
+          avatar,
+          email: user.email,
+        },
+        userId,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Login
 exports.login = async (req, res, next) => {
   try {
@@ -179,7 +216,7 @@ exports.login = async (req, res, next) => {
     }
 
     if (userDoc.isDisabled) {
-      throwError("Account has been disalbe. Please contact to admin");
+      throwError("Account has been disabled. Please contact the admin");
     }
 
     if (userDoc.deviceManagement.length > LIMIT_DEVICE) {
@@ -190,11 +227,18 @@ exports.login = async (req, res, next) => {
 
     const token = signToken(userDoc._id, TYPE_LOGIN.byPass, v4());
 
+    // Lưu token vào HttpOnly Cookie
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Chỉ gửi qua HTTPS khi ở môi trường production
+      sameSite: "Strict",
+      maxAge: MAX_AGE_COOKIE,
+    });
+
     return res.status(200).json({
       status: true,
       message: "Logged in successfully",
       data: {
-        token: token,
         userId: userDoc._id,
         typeLogin: TYPE_LOGIN.byPass,
       },
@@ -260,12 +304,18 @@ exports.loginWithGoogle = async (req, res, next) => {
     const token = signToken(user._id, TYPE_LOGIN.byGoogle);
 
     await updateDeviceManagement(user, req);
+    // Lưu token vào HttpOnly Cookie
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Chỉ gửi qua HTTPS khi ở môi trường production
+      sameSite: "Strict",
+      maxAge: MAX_AGE_COOKIE,
+    });
 
     return res.status(200).json({
       status: true,
       message: "Logged in successfully",
       data: {
-        token,
         userId: user._id,
         loginType: TYPE_LOGIN.byGoogle,
       },
@@ -301,7 +351,7 @@ exports.logout = async (req, res, next) => {
     const deviceId = getDeviceId(req);
 
     const userDoc = await User.findById(userId);
-    if (!userDoc) return throwError("Not found user");
+    if (!userDoc) return throwError("User not found");
 
     // Xóa session của thiết bị hiện tại
     userDoc.deviceManagement = userDoc.deviceManagement.filter(
@@ -312,11 +362,24 @@ exports.logout = async (req, res, next) => {
       validateModifiedOnly: true,
     });
 
-    await redis.set(`TOKEN_BLACK_LIST_${userId}_${jit}`, 1);
+    // Đưa token vào danh sách đen trong Redis
+    await redis.set(
+      `TOKEN_BLACK_LIST_${userId}_${jit}`,
+      1,
+      "EX",
+      7 * 24 * 60 * 60
+    ); // Hết hạn sau 7 ngày
+
+    // Xóa token từ cookie
+    res.clearCookie("access_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    });
 
     return res.status(200).json({
       status: true,
-      message: "Log out successfully",
+      message: "Logged out successfully",
     });
   } catch (error) {
     next(error);

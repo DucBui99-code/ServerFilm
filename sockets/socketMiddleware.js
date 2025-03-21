@@ -1,17 +1,21 @@
 const jwt = require("jsonwebtoken");
+const cookie = require("cookie");
 const dotenv = require("dotenv");
 const User = require("../models/UserModel");
 const { TYPE_LOGIN, LINK_AVATAR_DEFAULT } = require("../config/CONSTANT");
 dotenv.config({ path: "./.env" });
 
 const socketAuthMiddleware = async (socket, next) => {
-  const token = socket.handshake.auth?.token; // Lấy token từ handshake
-
-  if (!token) {
-    return next(new Error("Authentication token is missing"));
-  }
-
   try {
+    // Lấy cookie từ handshake headers
+    const cookies = socket.handshake.headers.cookie;
+    if (!cookies) return next(new Error("Unauthorized: No cookies found"));
+
+    // Parse cookie để lấy token
+    const parsedCookies = cookie.parse(cookies);
+    const token = parsedCookies.access_token;
+
+    if (!token) return next(new Error("Unauthorized: No token found"));
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.userId)
       .select("username avatar inforAccountGoogle")

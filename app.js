@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http");
+const cookieParser = require("cookie-parser");
 
 const connectDB = require("./config/database");
 const errorHandler = require("./middlewares/errorHandler");
@@ -18,7 +19,7 @@ const isDevelopment = process.env.NODE_ENV === "development";
 
 const app = express();
 const server = http.createServer(app);
-
+app.use(cookieParser());
 app.use(
   cors({
     origin: isDevelopment

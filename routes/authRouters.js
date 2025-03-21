@@ -9,6 +9,8 @@ router.post("/loginByGoogle", authController.loginWithGoogle);
 
 router.post("/register", authController.register);
 
+router.post("/me", authMiddleware, authController.getMe);
+
 router.post("/sendOTP", authController.sendOTP);
 
 router.post("/verifyOTP", authController.verifyOTP);

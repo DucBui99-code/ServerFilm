@@ -14,7 +14,7 @@ const {
 } = require("../services/paymentServices/paymentSepayServices");
 dotenv.config({ path: "./.env" });
 
-const { PAYMENT_METHODS } = require("../config/CONSTANT");
+const { PAYMENT_METHODS, EXPIRED_TIME_ORDER } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
 const {
   CancelBillService,
@@ -74,6 +74,7 @@ exports.createBillPackMonth = async (req, res, next) => {
       data: {
         billData: resBill.data,
         transactionId,
+        expireTime: EXPIRED_TIME_ORDER,
       },
     });
   } catch (error) {
@@ -154,6 +155,7 @@ exports.createBillPackRent = async (req, res, next) => {
       data: {
         billData: resBill.data,
         transactionId,
+        expireTime: EXPIRED_TIME_ORDER,
       },
     });
   } catch (error) {

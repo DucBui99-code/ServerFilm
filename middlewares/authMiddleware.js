@@ -6,21 +6,19 @@ const redis = require("../config/redis");
 dotenv.config({ path: "./.env" });
 
 const authMiddleware = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const token = req.cookies.access_token; // Chỉ lấy token từ cookie
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!token) {
     return res.status(401).json({
-      message: ["Authorization header is missing or invalid"],
+      message: ["Authorization token is missing"],
       status: false,
     });
   }
 
-  const token = authHeader.split(" ")[1];
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.userId).lean();
+    const user = await User.findById(decoded.userId, "isDisabled").lean();
 
     if (!user) {
       return res
@@ -30,19 +28,20 @@ const authMiddleware = async (req, res, next) => {
 
     if (user.isDisabled) {
       return res.status(403).json({
-        message: ["User is disabled. Please contact with admin"],
+        message: ["User is disabled. Please contact the admin"],
         status: false,
       });
     }
 
-    const isTokenExitBlackList = await redis.get(
+    const isTokenRevoked = await redis.get(
       `TOKEN_BLACK_LIST_${decoded.userId}_${decoded.jit}`
     );
-    if (isTokenExitBlackList) {
+    if (isTokenRevoked) {
       return res
         .status(401)
         .json({ message: ["Token revoked"], status: false });
     }
+
     req.user = decoded;
     next();
   } catch (err) {

@@ -1,6 +1,6 @@
 const EXPIRED_TIME_OTP = 1;
 const LIMIT_DEVICE = 3;
-const EXPIRED_TIME_TOKEN = "1h";
+const EXPIRED_TIME_TOKEN = "2m";
 const NUMBER_OTP_GENERATE = 6;
 const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
 const DEV_URL = "http://localhost:3000";
@@ -29,6 +29,7 @@ const LINK_AVATAR_DEFAULT =
 
 const LIMIT_CHAT_LIVE = 3;
 const TIME_WINDOW = 20; // giây
+const MAX_AGE_COOKIE = 7 * 24 * 60 * 60 * 1000;
 module.exports = {
   EXPIRED_TIME_OTP,
   LIMIT_DEVICE,
@@ -49,4 +50,5 @@ module.exports = {
   LIMIT_CHAT_LIVE,
   TIME_WINDOW,
   TIME_CHECK_BILL,
+  MAX_AGE_COOKIE,
 };
