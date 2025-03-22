@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { PACKAGE_TYPE, STATUS, PAYMENT_METHODS } = require("../config/CONSTANT");
 
 const UserSchema = new mongoose.Schema(
   {

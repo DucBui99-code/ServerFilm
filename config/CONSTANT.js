@@ -1,6 +1,6 @@
 const EXPIRED_TIME_OTP = 1;
 const LIMIT_DEVICE = 3;
-const EXPIRED_TIME_TOKEN = "2m";
+const EXPIRED_TIME_TOKEN = "1d";
 const NUMBER_OTP_GENERATE = 6;
 const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
 const DEV_URL = "http://localhost:3000";

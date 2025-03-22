@@ -18,7 +18,7 @@ exports.getProfile = async (req, res, next) => {
     switch (type) {
       case "0":
         const getUserInfoByGoogle = (user) => ({
-          avatar: user.inforAccountGoogle.avatar,
+          avatar: user.inforAccountGoogle.avatar || null,
           email: user.email,
           firstName: user.inforAccountGoogle.firstName,
           lastName: user.inforAccountGoogle.lastName,
@@ -29,7 +29,7 @@ exports.getProfile = async (req, res, next) => {
         });
 
         const getUserInfoByPass = (user) => ({
-          avatar: user.avatar,
+          avatar: user.avatar || null,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,

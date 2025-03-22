@@ -62,16 +62,18 @@ const getAndRemoveExpiredBills = async () => {
       if (!billDataJSON) continue;
 
       const billData = JSON.parse(billDataJSON);
-      console.log(billData);
 
       const nowUTC = Date.now();
       const billCreatedAtUTC = new Date(billData.createdAt).getTime();
 
       // Kiểm tra nếu bill quá hạn (mặc định: 5 phút)
       if (nowUTC - billCreatedAtUTC >= EXPIRED_TIME_ORDER * 60 * 1000) {
-        // ✅ Cập nhật trạng thái bill trong DB
-        await Bill.updateOne(
-          { transactionId: billData.id },
+        // ✅ Cập nhật trạng thái bill trong DB nếu hợp lệ
+        const updateResult = await Bill.updateOne(
+          {
+            transactionId: billData.id,
+            paymentStatus: { $nin: ["failed", "completed"] }, // Tránh cập nhật nếu đã failed/completed
+          },
           {
             paymentStatus: "failed",
             logs: {
@@ -81,9 +83,11 @@ const getAndRemoveExpiredBills = async () => {
           }
         );
 
-        // ✅ Xóa khỏi Redis
-        await redis.lrem("pending_bills", 1, billDataJSON);
-        expiredBills.push(billData);
+        // Nếu có bill được cập nhật, xóa khỏi Redis và thêm vào danh sách expired
+        if (updateResult.modifiedCount > 0) {
+          await redis.lrem("pending_bills", 1, billDataJSON);
+          expiredBills.push(billData);
+        }
       }
     }
 

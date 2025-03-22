@@ -8,7 +8,7 @@ const {
 const { PATH_IMAGE } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
 
-exports.getAllMovies = async (req, res) => {
+exports.getAllMovies = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const type = req.query.type || "movie";
@@ -40,11 +40,11 @@ exports.getAllMovies = async (req, res) => {
       message: "Get moive success",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
-exports.searchMovies = async (req, res) => {
+exports.searchMovies = async (req, res, next) => {
   try {
     const { q, page = 1 } = req.query;
     const limit = 5;
@@ -99,11 +99,11 @@ exports.searchMovies = async (req, res) => {
       message: "Search movie success",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
-exports.getMovieBySlug = async (req, res) => {
+exports.getMovieBySlug = async (req, res, next) => {
   try {
     const userId = req?.user?.userId || null;
 
@@ -141,11 +141,11 @@ exports.getMovieBySlug = async (req, res) => {
       message: "Get movie success",
     });
   } catch (error) {
-    return res.status(500).json({ status: false, message: [error.message] });
+    next(error);
   }
 };
 
-exports.getDetailMovieEpisode = async (req, res) => {
+exports.getDetailMovieEpisode = async (req, res, next) => {
   try {
     const { movieId, indexEpisode } = req.body;
     const userId = req.user?.userId || null;
@@ -185,7 +185,7 @@ exports.getDetailMovieEpisode = async (req, res) => {
       data: dataEpisodes,
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: false });
+    next(error);
   }
 };
 
