@@ -307,7 +307,7 @@ exports.loginWithGoogle = async (req, res, next) => {
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // Chỉ gửi qua HTTPS khi ở môi trường production
-      sameSite: "Strict",
+      sameSite: isDevelopment ? "Strict" : "None",
       maxAge: MAX_AGE_COOKIE,
     });
 
