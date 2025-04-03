@@ -205,6 +205,72 @@ exports.getDetailMovieEpisode = async (req, res, next) => {
   }
 };
 
+exports.getMovieByCountry = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const country = req.query.country;
+
+    if (!country) {
+      throwError("Country query parameter is required");
+    }
+
+    const cacheKey = `movies:country:${country}:page:${page}:limit:${limit}`;
+    const cachedData = await cacheService.getCache(cacheKey);
+
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const totalMovies = await DetailMovie.countDocuments({
+      "country.slug": country,
+    }).lean();
+
+    const movies = await DetailMovie.aggregate([
+      {
+        $match: {
+          "country.slug": country,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          origin_name: 1,
+          name: 1,
+          thumb_url: 1,
+          poster_url: 1,
+          year: 1,
+          slug: 1,
+          tmdb: 1,
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+    const response = {
+      status: true,
+      data: {
+        items: movies,
+        pathImage: PATH_IMAGE,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalMovies / limit),
+          totalMovies,
+          lastPage: page >= Math.ceil(totalMovies / limit),
+        },
+      },
+      message: "Search movie success",
+    };
+
+    await cacheService.setCache(cacheKey, response, 3600);
+
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const isNeedRent = async (userId, movieData) => {
   if (!userId) return false;
   const user = await UserDB.findById(userId);
