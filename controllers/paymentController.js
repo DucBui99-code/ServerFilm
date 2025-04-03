@@ -59,7 +59,6 @@ exports.createBillPackMonth = async (req, res, next) => {
         userId,
         namePackage,
         pricePackage,
-        transID,
         paymentMethod,
         packageId,
         "packageMonth",

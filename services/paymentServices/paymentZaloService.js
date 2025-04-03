@@ -63,8 +63,7 @@ exports.CreateBillServiceZalo = async (
     amount: pricePackage,
     description: `Payment for ${namePackage} - Order #${transactionId}`,
     bank_code: "zalopayapp",
-    callback_url:
-      "https://6420-118-70-46-250.ngrok-free.app/v1/MovieApp/bill/resultBillFromZalo",
+    callback_url: "https://shopshoes.io.vn/v1/MovieApp/bill/resultBillFromZalo",
   };
   // appid|app_trans_id|appuser|amount|apptime|embeddata|item
   const data =
