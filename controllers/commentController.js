@@ -71,7 +71,7 @@ exports.getCommentsByMovie = async (req, res, next) => {
 
     // 🔹 Lấy tổng số comment (không tính reply)
     const totalItems = await Comment.countDocuments({ movieId });
-    const isLastPage = pageNumber * limitNumber >= totalItems;
+    const isLastPage = skip + comments.length >= totalItems;
 
     res.status(200).json({
       comments: formattedComments,
@@ -480,17 +480,33 @@ exports.likeOrDislikeComment = async (req, res, next) => {
 
     await comment.save({ validateModifiedOnly: true });
 
-    if (comment.user.toString() !== userId.toString() && !hasLiked) {
-      await sendNotification(
-        comment.user,
-        userId,
-        null,
-        type === COMMENT_TYPE.comment
-          ? comment.movieId
-          : comment.commentId?.movieId,
-        ACTION_COMMENT_TYPE.like,
-        typeLogin
-      );
+    if (
+      typeAction === ACTION_COMMENT_TYPE.like &&
+      !hasLiked &&
+      comment.user.toString() !== userId.toString()
+    ) {
+      const existingNotification = await Notification.findOne({
+        senderId: userId,
+        receiverId: comment.user,
+        type: "like", // Chỉ thông báo nếu chưa có like/dislike từ user này
+        movieId:
+          type === COMMENT_TYPE.comment
+            ? comment.movieId
+            : comment.commentId?.movieId,
+        userType: typeLogin,
+      }).lean();
+      if (!existingNotification) {
+        await sendNotification(
+          comment.user,
+          userId,
+          null,
+          type === COMMENT_TYPE.comment
+            ? comment.movieId
+            : comment.commentId?.movieId,
+          ACTION_COMMENT_TYPE.like,
+          typeLogin
+        );
+      }
     }
 
     return res.status(200).json({

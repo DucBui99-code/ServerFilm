@@ -30,6 +30,8 @@ const options = {
 const signToken = (userId, typeLogin, jit) =>
   jwt.sign({ userId, typeLogin, jit }, process.env.JWT_SECRET, options);
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 // Register
 exports.register = async (req, res, next) => {
   try {
@@ -231,7 +233,7 @@ exports.login = async (req, res, next) => {
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // Chỉ gửi qua HTTPS khi ở môi trường production
-      sameSite: "None",
+      sameSite: isDevelopment ? "Strict" : "None",
       maxAge: MAX_AGE_COOKIE,
     });
 
@@ -256,7 +258,7 @@ exports.loginWithGoogle = async (req, res, next) => {
       throwError("Google ID and email are required");
     }
 
-    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+    const user = await User.findOne({ $or: [{ googleId }, { email }] });
 
     if (!user) {
       // gen random number to username
@@ -287,21 +289,17 @@ exports.loginWithGoogle = async (req, res, next) => {
 
       if (!user.googleId) {
         user.googleId = googleId;
-        user.inforAccountGoogle = {
-          avatar: {
-            url: avatar,
-          },
-          firstName,
-          lastName,
-        };
-        await user.save({
-          new: true,
-          validateModifiedOnly: true,
-        });
+        user.inforAccountGoogle = {}; // Đảm bảo không bị undefined
+        user.inforAccountGoogle.avatar = { url: avatar };
+        user.inforAccountGoogle.firstName = firstName;
+        user.inforAccountGoogle.lastName = lastName;
+
+        user.markModified("inforAccountGoogle"); // Báo MongoDB rằng field này đã thay đổi
+        await user.save({ validateModifiedOnly: true });
       }
     }
 
-    const token = signToken(user._id, TYPE_LOGIN.byGoogle);
+    const token = signToken(user._id, TYPE_LOGIN.byGoogle, v4());
 
     await updateDeviceManagement(user, req);
     // Lưu token vào HttpOnly Cookie
@@ -317,7 +315,7 @@ exports.loginWithGoogle = async (req, res, next) => {
       message: "Logged in successfully",
       data: {
         userId: user._id,
-        loginType: TYPE_LOGIN.byGoogle,
+        typeLogin: TYPE_LOGIN.byGoogle,
       },
     });
   } catch (error) {
@@ -329,15 +327,18 @@ exports.loginWithGoogle = async (req, res, next) => {
 exports.deleteAccount = async (req, res, next) => {
   try {
     const { userId } = req.user;
-    const userDoc = await User.findByIdAndDelete(userId);
+    const userDoc = await User.findById(userId);
 
     if (!userDoc) {
       throwError("User not found");
     }
 
+    userDoc.isDisabled = true;
+    await userDoc.save({ validateModifiedOnly: true });
+
     return res.status(200).json({
       status: true,
-      message: "Account deleted successfully",
+      message: "Account disabled successfully",
     });
   } catch (error) {
     next(error);

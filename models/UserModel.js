@@ -8,16 +8,13 @@ const UserSchema = new mongoose.Schema(
     inforAccountGoogle: {
       firstName: {
         type: String,
-        immutable: true, // Không thể sửa đổi sau khi tạo
       },
       lastName: {
         type: String,
-        immutable: true, // Không thể sửa đổi sau khi tạo
       },
       avatar: {
         url: {
           type: String,
-          immutable: true, // Không thể sửa đổi sau khi tạo
         },
       },
     },

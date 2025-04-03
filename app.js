@@ -19,6 +19,10 @@ const isDevelopment = process.env.NODE_ENV === "development";
 
 const app = express();
 const server = http.createServer(app);
+
+app.use(express.json({ limit: "10mb" })); // Giới hạn request body tối đa 10MB
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
 app.use(cookieParser());
 app.use(
   cors({

@@ -4,6 +4,7 @@ const { DetailMovie } = require("../models/DetailMovieModel");
 
 const User = require("../models/UserModel");
 const throwError = require("../utils/throwError");
+const cacheService = require("../services/cacheService");
 
 exports.createPackage = async (req, res) => {
   const { name, duration, price } = req.body;
@@ -31,11 +32,19 @@ exports.getPackage = async (req, res, next) => {
     const { movieId } = req.query;
     let packageMovieSingle = {};
 
+    // 👉 Tạo cache key dựa trên movieId (nếu có)
+    const cacheKey = movieId ? `package:movie:${movieId}` : `package:all`;
+
+    // 🔹 Kiểm tra cache
+    const cachedData = await cacheService.getCache(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+
     if (movieId) {
       const dataDetailMovie = await DetailMovie.findById(movieId).lean();
 
       if (dataDetailMovie) {
-        // Only populate packageMovieSingle if the movie is valid
         if (
           dataDetailMovie.__t === "DetailMovieRent" &&
           dataDetailMovie.isBuyBySingle
@@ -55,14 +64,19 @@ exports.getPackage = async (req, res, next) => {
       throwError("No packages available");
     }
 
-    return res.status(200).json({
+    const response = {
       status: true,
       message: "Get Package success",
       data: {
         packageMonth: packages,
-        packageSingle: packageMovieSingle, // Will be {} if no valid movie found
+        packageSingle: packageMovieSingle,
       },
-    });
+    };
+
+    // 🔹 Lưu cache (6 giờ - 21600 giây)
+    await cacheService.setCache(cacheKey, response, 21600);
+
+    return res.status(200).json(response);
   } catch (error) {
     next(error);
   }

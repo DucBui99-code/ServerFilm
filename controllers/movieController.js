@@ -7,28 +7,36 @@ const {
 } = require("../utils/checkPack");
 const { PATH_IMAGE } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
+const cacheService = require("../services/cacheService");
 
 exports.getAllMovies = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const type = req.query.type || "movie";
-    const limit = 24;
+    const limit = 15;
     const skip = (page - 1) * limit;
 
     let filter = {};
-
-    // Xác định loại phim cần lấy
     if (type === "movie") {
-      filter = { __t: { $ne: "MovieRent" } }; // Lấy các Movie bình thường
+      filter = { __t: { $ne: "MovieRent" } };
     } else if (type === "movieRent") {
-      filter = { __t: "MovieRent" }; // Lấy các MovieRent
+      filter = { __t: "MovieRent" };
     }
 
-    const totalMovies = await Movie.countDocuments(filter).lean();
+    // 👉 Tạo cache key
+    const cacheKey = `movies:${type}:page:${page}`;
 
+    // 🔹 Kiểm tra cache
+    const cachedData = await cacheService.getCache(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    // 🔹 Nếu không có cache, truy vấn MongoDB
+    const totalMovies = await Movie.countDocuments(filter).lean();
     const movies = await Movie.find(filter).skip(skip).limit(limit).lean();
 
-    return res.json({
+    const response = {
       status: true,
       pagination: {
         currentPage: page,
@@ -37,8 +45,13 @@ exports.getAllMovies = async (req, res, next) => {
       },
       items: movies,
       pathImage: PATH_IMAGE,
-      message: "Get moive success",
-    });
+      message: "Get movie success",
+    };
+
+    // 🔹 Lưu cache (1 ngày)
+    await cacheService.setCache(cacheKey, JSON.stringify(response), 86400);
+
+    return res.json(response);
   } catch (error) {
     next(error);
   }
@@ -56,35 +69,32 @@ exports.searchMovies = async (req, res, next) => {
         .json({ message: "Invalid Query", items: [], status: false });
     }
 
-    const safeQuery = q.replace(
-      /[^a-zA-Z0-9\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/g,
-      ""
-    );
+    const cacheKey = `search:${q}:${page}`;
 
-    if (safeQuery.length > 50) {
-      return res
-        .status(400)
-        .json({ message: "Query is too long", items: [], status: false });
+    // Kiểm tra cache trước khi truy vấn MongoDB
+    const cachedData = await cacheService.getCache(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(JSON.parse(cachedData));
     }
 
     const totalMovies = await Movie.countDocuments({
       $or: [
-        { name: { $regex: safeQuery, $options: "i" } },
-        { origin_name: { $regex: safeQuery, $options: "i" } },
+        { name: { $regex: q, $options: "i" } },
+        { origin_name: { $regex: q, $options: "i" } },
       ],
     }).lean();
 
     const movies = await Movie.find({
       $or: [
-        { name: { $regex: safeQuery, $options: "i" } },
-        { origin_name: { $regex: safeQuery, $options: "i" } },
+        { name: { $regex: q, $options: "i" } },
+        { origin_name: { $regex: q, $options: "i" } },
       ],
     })
       .skip(skip)
       .limit(limit)
       .lean();
 
-    return res.status(200).json({
+    const response = {
       status: true,
       data: {
         items: movies,
@@ -97,7 +107,12 @@ exports.searchMovies = async (req, res, next) => {
         },
       },
       message: "Search movie success",
-    });
+    };
+
+    // Lưu kết quả vào Redis với thời gian hết hạn là 10 phút (600 giây)
+    await cacheService.setCache(cacheKey, JSON.stringify(response), 600);
+
+    return res.status(200).json(response);
   } catch (error) {
     next(error);
   }
@@ -106,7 +121,6 @@ exports.searchMovies = async (req, res, next) => {
 exports.getMovieBySlug = async (req, res, next) => {
   try {
     const userId = req?.user?.userId || null;
-
     const { slug } = req.params;
 
     if (!slug?.trim()) {
@@ -135,11 +149,13 @@ exports.getMovieBySlug = async (req, res, next) => {
       movie.isRent = false;
     }
 
-    return res.status(200).json({
+    const response = {
       status: true,
       data: movie,
       message: "Get movie success",
-    });
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     next(error);
   }
