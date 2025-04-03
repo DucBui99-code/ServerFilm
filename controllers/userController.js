@@ -84,7 +84,6 @@ exports.getProfile = async (req, res, next) => {
         response.totalPages = totalPages;
         response.totalItems = totalItems;
 
-        await redis.setCache(cacheKey, response, CACHE_EXPIRE_TIME.bills);
         break;
 
       case "2": // Lịch sử mua gói tháng
@@ -95,11 +94,7 @@ exports.getProfile = async (req, res, next) => {
           ),
         }));
         response.message = "Get history pack month successfully";
-        await redis.setCache(
-          cacheKey,
-          response,
-          CACHE_EXPIRE_TIME.purchasedMoviesMonth
-        );
+
         break;
 
       case "3": // Danh sách phim yêu thích
