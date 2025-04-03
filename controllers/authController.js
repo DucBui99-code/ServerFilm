@@ -185,6 +185,7 @@ exports.getMe = async (req, res, next) => {
           email: user.email,
         },
         userId,
+        loginType: typeLogin,
       },
     });
   } catch (error) {

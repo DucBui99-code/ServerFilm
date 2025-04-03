@@ -49,7 +49,7 @@ exports.getAllMovies = async (req, res, next) => {
     };
 
     // 🔹 Lưu cache (1 ngày)
-    await cacheService.setCache(cacheKey, JSON.stringify(response), 86400);
+    await cacheService.setCache(cacheKey, response, 86400);
 
     return res.json(response);
   } catch (error) {
@@ -74,7 +74,7 @@ exports.searchMovies = async (req, res, next) => {
     // Kiểm tra cache trước khi truy vấn MongoDB
     const cachedData = await cacheService.getCache(cacheKey);
     if (cachedData) {
-      return res.status(200).json(JSON.parse(cachedData));
+      return res.status(200).json(cachedData);
     }
 
     const totalMovies = await Movie.countDocuments({
@@ -110,7 +110,7 @@ exports.searchMovies = async (req, res, next) => {
     };
 
     // Lưu kết quả vào Redis với thời gian hết hạn là 10 phút (600 giây)
-    await cacheService.setCache(cacheKey, JSON.stringify(response), 600);
+    await cacheService.setCache(cacheKey, response, 600);
 
     return res.status(200).json(response);
   } catch (error) {

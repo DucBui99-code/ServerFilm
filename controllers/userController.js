@@ -4,59 +4,64 @@ const cloudinary = require("cloudinary").v2;
 
 const { DetailMovie } = require("../models/DetailMovieModel");
 const BIll = require("../models/BillModel");
-const { PATH_IMAGE, TYPE_LOGIN } = require("../config/CONSTANT");
+const { TYPE_LOGIN } = require("../config/CONSTANT");
 const throwError = require("../utils/throwError");
 
-// Get Profile
+const redis = require("../services/cacheService"); // Import Redis đã setup
+
+const CACHE_EXPIRE_TIME = {
+  profile: 600, // 10 phút
+  bills: 1800, // 30 phút
+  purchasedMovies: 3600, // 1 giờ
+  favoriteMovies: 3600, // 1 giờ
+  deviceManagement: 1800, // 30 phút
+};
+
+// Get Profile API
 exports.getProfile = async (req, res, next) => {
   try {
     const { userId, typeLogin } = req.user;
     const { type } = req.query;
+    const cacheKey = `profile:${userId}:type-${type}`;
+
+    // 🟢 Kiểm tra cache trước khi truy vấn MongoDB
+    const cachedData = await redis.getCache(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData); // Không cần parse JSON
+    }
 
     const user = await User.findById(userId).lean();
+    let response = { status: true, data: null, message: "" };
 
     switch (type) {
-      case "0":
-        const getUserInfoByGoogle = (user) => ({
-          avatar: user.inforAccountGoogle.avatar || null,
-          email: user.email,
-          firstName: user.inforAccountGoogle.firstName,
-          lastName: user.inforAccountGoogle.lastName,
-          birthDay: user.birthDay,
-          sex: user.sex,
-          username: user.username,
-          phoneNumber: user.phoneNumber,
-        });
+      case "0": // Thông tin cá nhân
+        response.data =
+          typeLogin === TYPE_LOGIN.byGoogle
+            ? {
+                avatar: user.inforAccountGoogle?.avatar || null,
+                email: user.email,
+                firstName: user.inforAccountGoogle?.firstName,
+                lastName: user.inforAccountGoogle?.lastName,
+                birthDay: user.birthDay,
+                sex: user.sex,
+                username: user.username,
+                phoneNumber: user.phoneNumber,
+              }
+            : {
+                avatar: user.avatar || null,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                birthDay: user.birthDay,
+                sex: user.sex,
+                username: user.username,
+                phoneNumber: user.phoneNumber,
+              };
+        response.message = "Get info successfully";
+        break;
 
-        const getUserInfoByPass = (user) => ({
-          avatar: user.avatar || null,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          birthDay: user.birthDay,
-          sex: user.sex,
-          username: user.username,
-          phoneNumber: user.phoneNumber,
-        });
-
-        let dataInforAcc = {};
-
-        if (typeLogin === TYPE_LOGIN.byGoogle) {
-          dataInforAcc = getUserInfoByGoogle(user);
-        } else if (typeLogin === TYPE_LOGIN.byPass) {
-          dataInforAcc = getUserInfoByPass(user);
-        } else {
-          throwError("Invalid type login");
-        }
-
-        return res.status(200).json({
-          status: true,
-          data: dataInforAcc,
-          message: "Get info successfully",
-        });
-      case "1":
+      case "1": // Lịch sử giao dịch
         const { page = 1, limit = 10 } = req.query;
-
         const bills = await BIll.find({ userId })
           .select(
             "packageType _id paymentMethod price paymentStatus createdAt packageName"
@@ -65,68 +70,63 @@ exports.getProfile = async (req, res, next) => {
           .skip((page - 1) * limit)
           .limit(parseInt(limit))
           .lean();
-
         const totalItems = await BIll.countDocuments({ userId });
         const totalPages = Math.ceil(totalItems / limit);
 
-        const formattedBills = bills.map((bill) => ({
+        response.data = bills.map((bill) => ({
           ...bill,
           createdAt: moment(bill.createdAt)
             .utcOffset("+07:00")
             .format("YYYY-MM-DD HH:mm:ss"),
         }));
+        response.message = "Get history purchase successfully";
+        response.currentPage = parseInt(page);
+        response.totalPages = totalPages;
+        response.totalItems = totalItems;
 
-        return res.status(200).json({
-          status: true,
-          data: formattedBills,
-          message: "Get history purchase successfully",
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems,
-        });
-      case "2":
-        user.purchasedMoviesMonth = user.purchasedMoviesMonth.map((movie) => ({
+        await redis.setCache(cacheKey, response, CACHE_EXPIRE_TIME.bills);
+        break;
+
+      case "2": // Lịch sử mua gói tháng
+        response.data = user.purchasedMoviesMonth.map((movie) => ({
           ...movie,
           isExpired: moment().isAfter(
             moment(movie.exprationDate, "DD/MM/YYYY")
           ),
         }));
-        return res.status(200).json({
-          status: true,
-          data: user.purchasedMoviesMonth,
-          message: "Get history pack month successfully",
-        });
-      case "3":
-        const dataFavoriteMovie = await Promise.all(
+        response.message = "Get history pack month successfully";
+        await redis.setCache(
+          cacheKey,
+          response,
+          CACHE_EXPIRE_TIME.purchasedMoviesMonth
+        );
+        break;
+
+      case "3": // Danh sách phim yêu thích
+        response.data = await Promise.all(
           user.favoriteMovies.map(async (movie) => {
             const movieDetailDB = await DetailMovie.findById(movie.movieId)
-              .select(
-                "name slug origin_name thumb_url poster_url year episode_current quality __t tmdb quality"
-              )
+              .select("name slug origin_name thumb_url poster_url year")
               .lean();
-
-            return {
-              _id: movie._id,
-              ...(movieDetailDB || {}),
-            };
+            return { _id: movie._id, ...(movieDetailDB || {}) };
           })
         );
+        response.message = "Get favorite movie successfully";
+        await redis.setCache(
+          cacheKey,
+          response,
+          CACHE_EXPIRE_TIME.favoriteMovies
+        );
+        break;
 
-        return res.status(200).json({
-          status: true,
-          data: dataFavoriteMovie,
-          pathImage: PATH_IMAGE,
-          message: "Get favorite movie successfully",
-        });
-      case "4":
-        const dataMovieRent = await Promise.all(
+      case "4": // Danh sách phim thuê
+        response.data = await Promise.all(
           user.purchasedMoviesRent.map(async (movie) => {
             const movieDetailDB = await DetailMovie.findById(movie.movieId)
               .select(
                 "name origin_name thumb_url poster_url price duration slug"
               )
               .lean();
-
             return {
               _id: movie._id,
               purchaseDate: movie.purchaseDate,
@@ -138,21 +138,29 @@ exports.getProfile = async (req, res, next) => {
             };
           })
         );
-        return res.status(200).json({
-          status: true,
-          data: dataMovieRent,
-          pathImage: PATH_IMAGE,
-          message: "Get pack movie rent successfully",
-        });
-      case "5":
-        return res.status(200).json({
-          status: true,
-          data: user.deviceManagement,
-          message: "Get device management successfully",
-        });
+        response.message = "Get rented movies successfully";
+        await redis.setCache(
+          cacheKey,
+          response,
+          CACHE_EXPIRE_TIME.rentedMovies
+        );
+        break;
+
+      case "5": // Quản lý thiết bị
+        response.data = user.deviceManagement;
+        response.message = "Get device management successfully";
+        await redis.setCache(
+          cacheKey,
+          response,
+          CACHE_EXPIRE_TIME.deviceManagement
+        );
+        break;
+
       default:
         throwError("Invalid Type");
     }
+
+    return res.status(200).json(response);
   } catch (error) {
     next(error);
   }
@@ -305,6 +313,9 @@ exports.toggleFavoriteMovie = async (req, res, next) => {
     }
 
     await user.save({ validateModifiedOnly: true });
+    // 🟢 Cập nhật Redis
+    const cacheKey = `profile:${userId}:type-3`;
+    await redis.deleteCache(cacheKey); // Xóa cache danh sách phim yêu thích để lần sau lấy mới
 
     return res.status(200).json({
       status: true,

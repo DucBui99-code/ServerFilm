@@ -26,6 +26,15 @@ const cacheService = {
       console.error("Redis deleteCache error:", error);
     }
   },
+
+  async clearCache() {
+    try {
+      await redis.flushall(); // Xóa toàn bộ cache Redis
+      console.log("Redis cache cleared successfully!");
+    } catch (error) {
+      console.error("Redis clearCache error:", error);
+    }
+  },
 };
 
 module.exports = cacheService;

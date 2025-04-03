@@ -65,6 +65,7 @@ exports.getCommentsByMovie = async (req, res, next) => {
             ? userMap[comment.user.toString()]?.inforAccountGoogle?.avatar?.url
             : userMap[comment.user.toString()]?.avatar?.url || null,
         username: userMap[comment.user.toString()]?.username || "Unknown User",
+        sex: userMap[comment.user.toString()]?.sex || "other",
       },
       replyCount: replyCountMap[comment._id.toString()] || 0, // Chỉ trả về số lượng reply
     }));
@@ -128,10 +129,11 @@ exports.getRepliesByComment = async (req, res, next) => {
       ...reply,
       userDetails: {
         avatar:
-          reply.typeReply === "byGoogle"
+          reply.typeComment === "byGoogle"
             ? userMap[reply.user.toString()]?.inforAccountGoogle?.avatar?.url
             : userMap[reply.user.toString()]?.avatar?.url || null,
         username: userMap[reply.user.toString()]?.username || "Unknown User",
+        sex: userMap[reply.user.toString()]?.sex || "other",
       },
       replyToUsername: reply.replyTo
         ? userMap[reply.replyTo.toString()]?.username || "Unknown User"
@@ -140,7 +142,8 @@ exports.getRepliesByComment = async (req, res, next) => {
 
     // 🔹 Lấy tổng số reply
     const totalItems = await Reply.countDocuments({ commentId });
-    const isLastPage = pageNumber * limitNumber >= totalItems;
+    const isLastPage =
+      replies.length < limitNumber || skip + replies.length >= totalItems;
 
     res.status(200).json({
       replies: formattedReplies,

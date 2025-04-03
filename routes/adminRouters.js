@@ -10,4 +10,5 @@ router.post(
   authMiddleware,
   adminController.sendGlobalNotification
 );
+router.delete("/clearCache", authMiddleware, adminController.clearCache);
 module.exports = router;

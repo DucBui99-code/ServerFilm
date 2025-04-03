@@ -1,6 +1,7 @@
 const User = require("../models/UserModel.js");
 const Notification = require("../models/NotificationModel.js");
 const throwError = require("../utils/throwError.js");
+const cacheService = require("../services/cacheService.js");
 
 exports.toggleBanUser = async (req, res, next) => {
   try {
@@ -113,6 +114,18 @@ exports.sendGlobalNotification = async (req, res, next) => {
     io.emit("receiveNotification", { content });
 
     res.status(200).json({ message: "Notification sent successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.clearCache = async (req, res, next) => {
+  try {
+    await cacheService.clearCache(); // Xóa toàn bộ cache Redis
+    res.status(200).json({
+      status: true,
+      message: "Cache cleared successfully",
+    });
   } catch (error) {
     next(error);
   }
