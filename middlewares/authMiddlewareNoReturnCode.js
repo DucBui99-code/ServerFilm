@@ -3,10 +3,14 @@ const UserDB = require("../models/UserModel");
 
 const authMiddlewareNoReturn = async (req, res, next) => {
   try {
-    const token = req.cookies.access_token;
+    let token = req.cookies.access_token;
+
+    if (!token && req.headers.authorization) {
+      token = req.headers.authorization.split(" ")[1]; // Bearer <token>
+    }
 
     if (!token) {
-      req.user = null; // Không có token => req.user = null
+      req.user = null;
       return next();
     }
 
@@ -26,7 +30,7 @@ const authMiddlewareNoReturn = async (req, res, next) => {
 
     next();
   } catch (error) {
-    req.user = null; // Nếu token sai, vẫn cho phép tiếp tục nhưng không có user
+    req.user = null;
     next();
   }
 };

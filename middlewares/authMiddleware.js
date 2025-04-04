@@ -6,7 +6,12 @@ const redis = require("../config/redis");
 dotenv.config({ path: "./.env" });
 
 const authMiddleware = async (req, res, next) => {
-  const token = req.cookies.access_token; // Chỉ lấy token từ cookie
+  let token = req.cookies.access_token; // Lấy token từ cookie
+
+  if (!token && req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    token = authHeader.split(" ")[1]; // Lấy token từ header Authorization: Bearer <token>
+  }
 
   if (!token) {
     return res.status(401).json({

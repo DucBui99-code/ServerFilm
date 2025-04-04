@@ -236,11 +236,6 @@ exports.login = async (req, res, next) => {
       secure: process.env.NODE_ENV === "production", // Chỉ gửi qua HTTPS khi ở môi trường production
       sameSite: isDevelopment ? "Strict" : "None",
       maxAge: MAX_AGE_COOKIE,
-      path: "/",
-      domain:
-        process.env.NODE_ENV === "production"
-          ? ".shopshoes.io.vn" // Production domain (có dấu chấm đầu)
-          : undefined, // Development (localhost không cần domain)
     });
 
     return res.status(200).json({
@@ -249,6 +244,7 @@ exports.login = async (req, res, next) => {
       data: {
         userId: userDoc._id,
         typeLogin: TYPE_LOGIN.byPass,
+        token: token,
       },
     });
   } catch (error) {
@@ -314,11 +310,6 @@ exports.loginWithGoogle = async (req, res, next) => {
       secure: process.env.NODE_ENV === "production", // Chỉ gửi qua HTTPS khi ở môi trường production
       sameSite: isDevelopment ? "Strict" : "None",
       maxAge: MAX_AGE_COOKIE,
-      path: "/",
-      domain:
-        process.env.NODE_ENV === "production"
-          ? ".shopshoes.io.vn" // Production domain (có dấu chấm đầu)
-          : undefined, // Development (localhost không cần domain)
     });
 
     return res.status(200).json({
@@ -327,6 +318,7 @@ exports.loginWithGoogle = async (req, res, next) => {
       data: {
         userId: user._id,
         typeLogin: TYPE_LOGIN.byGoogle,
+        token: token,
       },
     });
   } catch (error) {
