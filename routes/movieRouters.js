@@ -17,6 +17,8 @@ router.get(
   commentController.getCommentsByMovie
 );
 router.get("/getMovieByCountry", movieController.getMovieByCountry);
+router.get("/getMovieByCategory", movieController.getMovieByCategory);
+router.get("/getMovieByType", movieController.getMovieByType);
 router.get(
   "/getReplyComments/:commentId",
   authMiddlewareNoReturn,

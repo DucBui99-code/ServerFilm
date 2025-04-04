@@ -243,6 +243,141 @@ exports.getMovieByCountry = async (req, res, next) => {
           year: 1,
           slug: 1,
           tmdb: 1,
+          __t: 1,
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+    const response = {
+      status: true,
+      data: {
+        items: movies,
+        pathImage: PATH_IMAGE,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalMovies / limit),
+          totalMovies,
+          lastPage: page >= Math.ceil(totalMovies / limit),
+        },
+      },
+      message: "Search movie success",
+    };
+
+    await cacheService.setCache(cacheKey, response, 3600);
+
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getMovieByType = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const type = req.query.type;
+
+    if (!type) {
+      throwError("type query parameter is required");
+    }
+
+    const cacheKey = `movies:type:${type}:page:${page}:limit:${limit}`;
+    const cachedData = await cacheService.getCache(cacheKey);
+
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const totalMovies = await DetailMovie.countDocuments({
+      type: type,
+    }).lean();
+
+    const movies = await DetailMovie.aggregate([
+      {
+        $match: {
+          type: type,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          origin_name: 1,
+          name: 1,
+          thumb_url: 1,
+          poster_url: 1,
+          year: 1,
+          slug: 1,
+          tmdb: 1,
+          __t: 1,
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+    const response = {
+      status: true,
+      data: {
+        items: movies,
+        pathImage: PATH_IMAGE,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalMovies / limit),
+          totalMovies,
+          lastPage: page >= Math.ceil(totalMovies / limit),
+        },
+      },
+      message: "Search movie success",
+    };
+
+    await cacheService.setCache(cacheKey, response, 3600);
+
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getMovieByCategory = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const category = req.query.category;
+
+    if (!category) {
+      throwError("category query parameter is required");
+    }
+
+    const cacheKey = `movies:category:${category}:page:${page}:limit:${limit}`;
+    const cachedData = await cacheService.getCache(cacheKey);
+
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const totalMovies = await DetailMovie.countDocuments({
+      "category.slug": category,
+    }).lean();
+
+    const movies = await DetailMovie.aggregate([
+      {
+        $match: {
+          "category.slug": category,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          origin_name: 1,
+          name: 1,
+          thumb_url: 1,
+          poster_url: 1,
+          year: 1,
+          slug: 1,
+          tmdb: 1,
+          __t: 1,
         },
       },
       { $skip: skip },
