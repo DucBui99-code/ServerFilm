@@ -30,6 +30,7 @@ app.use(
       ? process.env.DEV_ALLOW_URL
       : process.env.PRODUCTION_ALLOW_URL, // Chỉ chấp nhận origin từ danh sách
     credentials: true,
+    exposedHeaders: ["set-cookie"],
   })
 );
 

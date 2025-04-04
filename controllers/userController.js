@@ -134,11 +134,6 @@ exports.getProfile = async (req, res, next) => {
           })
         );
         response.message = "Get rented movies successfully";
-        await redis.setCache(
-          cacheKey,
-          response,
-          CACHE_EXPIRE_TIME.rentedMovies
-        );
         break;
 
       case "5": // Quản lý thiết bị

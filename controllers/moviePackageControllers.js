@@ -53,6 +53,7 @@ exports.getPackage = async (req, res, next) => {
             name: dataDetailMovie.name,
             price: dataDetailMovie.price,
             _id: dataDetailMovie._id,
+            duration: dataDetailMovie.duration,
           };
         }
       }
