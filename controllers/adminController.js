@@ -1,4 +1,5 @@
 const User = require("../models/UserModel.js");
+const { DetailMovie } = require("../models/DetailMovieModel.js");
 const Notification = require("../models/NotificationModel.js");
 const throwError = require("../utils/throwError.js");
 const cacheService = require("../services/cacheService.js");
@@ -114,6 +115,33 @@ exports.sendGlobalNotification = async (req, res, next) => {
     io.emit("receiveNotification", { content });
 
     res.status(200).json({ message: "Notification sent successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.toggleLiveComment = async (req, res, next) => {
+  try {
+    const { movieId } = req.body;
+
+    if (!movieId) {
+      throwError("Missing movieId", 400);
+    }
+
+    const movie = await DetailMovie.findById(movieId);
+
+    if (!movie) {
+      throwError("Movie not found", 404);
+    }
+
+    movie.isLiveComment = !movie.isLiveComment;
+
+    await movie.save({ validateModifiedOnly: true });
+
+    return res.status(200).json({
+      status: true,
+      message: `Movie live comment updated successfully`,
+    });
   } catch (error) {
     next(error);
   }

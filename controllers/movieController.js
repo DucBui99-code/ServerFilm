@@ -130,6 +130,20 @@ exports.getMovieBySlug = async (req, res, next) => {
       });
     }
 
+    const cacheKey = `movie:${slug}`;
+    // Kiểm tra cache trước
+    const cachedMovie = await cacheService.getCache(cacheKey);
+
+    if (cachedMovie) {
+      console.log("Cache hit for movie:", slug);
+
+      return res.status(200).json({
+        status: true,
+        data: cachedMovie,
+        message: "Get movie success (from cache)",
+      });
+    }
+
     const movie = await DetailMovie.findOne({ slug }).lean();
 
     if (!movie) {
@@ -149,6 +163,13 @@ exports.getMovieBySlug = async (req, res, next) => {
       movie.isRent = false;
     }
 
+    // Cache chỉ lưu khi không cần thuê phim
+    if (!movie.isRent) {
+      console.log("Cache miss for movie:", slug);
+
+      await cacheService.setCache(cacheKey, movie, 3600); // Lưu cache trong 1 giờ
+    }
+
     const response = {
       status: true,
       data: movie,
@@ -166,23 +187,34 @@ exports.getDetailMovieEpisode = async (req, res, next) => {
     const { movieId, indexEpisode } = req.body;
     const userId = req.user?.userId || null;
 
-    // Lấy chi tiết phim
+    const cacheKey = `episodes:${movieId}`;
+    let episodesCache = await cacheService.getCache(cacheKey); // dạng object: { "0": {...}, "1": {...} }
+
+    // Nếu cache chưa tồn tại, tạo mới object rỗng
+    if (!episodesCache) {
+      episodesCache = {};
+    }
+
+    // Nếu đã có tập trong cache
+    if (episodesCache[indexEpisode]) {
+      return res.status(200).json({
+        status: true,
+        data: episodesCache[indexEpisode],
+        message: "Get episode success",
+      });
+    }
+
+    // Nếu chưa có tập trong cache → lấy từ DB
     const dataDetailMovie = await DetailMovie.findById(movieId).lean();
-    if (!dataDetailMovie) {
-      throwError("Detail movie not found");
-    }
+    if (!dataDetailMovie) throwError("Detail movie not found");
 
-    const episodes = dataDetailMovie.episodes?.[0]?.server_data || [];
-    const dataEpisodes = episodes[indexEpisode];
+    const episodesList = dataDetailMovie.episodes?.[0]?.server_data || [];
+    const dataEpisode = episodesList[indexEpisode];
+    if (!dataEpisode) throwError("Index Episode not found");
 
-    if (!dataEpisodes) {
-      throwError("Index Episode not found");
-    }
-
+    // Nếu là phim thuê → check quyền
     if (dataDetailMovie.__t === "DetailMovieRent") {
-      if (!userId) {
-        throwError("Please login to watch");
-      }
+      if (!userId) throwError("Please login to watch");
       const user = await UserDB.findById(userId).lean();
 
       if (
@@ -194,11 +226,23 @@ exports.getDetailMovieEpisode = async (req, res, next) => {
       if (dataDetailMovie.isBuyByMonth && checkPackMonthExpiration(user)) {
         throwError("Please buy package");
       }
+
+      // KHÔNG cache nếu là phim thuê
+      return res.status(200).json({
+        status: true,
+        data: dataEpisode,
+        message: "Get episode success",
+      });
     }
+
+    // Nếu không phải phim thuê → cập nhật cache (giữ các tập cũ)
+    episodesCache[indexEpisode] = dataEpisode;
+    await cacheService.setCache(cacheKey, episodesCache, 86400); // cache 1 ngày
 
     return res.status(200).json({
       status: true,
-      data: dataEpisodes,
+      data: dataEpisode,
+      message: "Get episode success",
     });
   } catch (error) {
     next(error);
@@ -408,7 +452,7 @@ exports.getMovieByCategory = async (req, res, next) => {
 
 const isNeedRent = async (userId, movieData) => {
   if (!userId) return false;
-  const user = await UserDB.findById(userId);
+  const user = await UserDB.findById(userId).lean();
   return (
     checkPackMonthExpiration(user) || checkRentExpiration(user, movieData._id)
   );
