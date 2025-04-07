@@ -55,6 +55,16 @@ exports.register = async (req, res, next) => {
         throwError("Email is already in use", 409);
       }
     }
+    if (
+      userDocEmail &&
+      new Date(userDocEmail.otpExpires).getTime() > Date.now()
+    ) {
+      return res.status(400).json({
+        status: false,
+        message: "OTP is still valid. Please check your email.",
+        timeExpired: EXPIRED_TIME_OTP,
+      });
+    }
 
     if (userDocEmail) {
       userDocEmail.set(filteredBody);
@@ -78,6 +88,20 @@ exports.sendOTP = async (req, res, next) => {
   try {
     const { userId } = req.body;
 
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throwError("User does not exist");
+    }
+
+    if (new Date(user.otpExpires).getTime() > Date.now()) {
+      return res.status(400).json({
+        status: false,
+        message: "OTP is still valid. Please check your email.",
+        timeExpired: EXPIRED_TIME_OTP,
+      });
+    }
+
     const new_otp = otpGenerator.generate(NUMBER_OTP_GENERATE, {
       upperCaseAlphabets: false,
       specialChars: false,
@@ -86,14 +110,10 @@ exports.sendOTP = async (req, res, next) => {
 
     const otpExpires = Date.now() + EXPIRED_TIME_OTP * 60 * 1000;
 
-    const user = await User.findByIdAndUpdate(userId, {
+    await User.findByIdAndUpdate(userId, {
       otpExpires,
+      otp: new_otp.toString(),
     });
-    if (!user) {
-      throwError("User does not exist");
-    }
-    user.otp = new_otp.toString();
-    await user.save({ new: true, validateModifiedOnly: true });
 
     mailServices.sendEmail({
       to: user.email,
