@@ -6,6 +6,7 @@ const commentController = require("../controllers/commentController");
 const liveCommentController = require("../controllers/liveCommentController");
 
 router.get("/getListMovie", movieController.getAllMovies);
+router.get("/geRandomLiveMovie", movieController.getRandomLiveMovie);
 router.get("/searchMovie", movieController.searchMovies);
 router.get(
   "/getMovieDetail/:slug",

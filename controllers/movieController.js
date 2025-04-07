@@ -246,6 +246,43 @@ exports.getDetailMovieEpisode = async (req, res, next) => {
   }
 };
 
+exports.getRandomLiveMovie = async (req, res, next) => {
+  try {
+    const cacheKey = `randomLiveMovie`;
+    const cachedData = await cacheService.getCache(cacheKey);
+
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const liveMovies = await DetailMovie.find({ isLiveComment: true })
+      .select("slug thumb_url poster_url name origin_name __t")
+      .lean();
+
+    if (!liveMovies || liveMovies.length === 0) {
+      return res.status(404).json({
+        status: false,
+        message: "No live movies found",
+      });
+    }
+
+    const randomIndex = Math.floor(Math.random() * liveMovies.length);
+    const randomMovie = liveMovies[randomIndex];
+
+    const response = {
+      status: true,
+      data: randomMovie,
+      message: "Get random live movie success",
+    };
+
+    await cacheService.setCache(cacheKey, response, 3600);
+
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getMovieByCountry = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;

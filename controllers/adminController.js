@@ -3,6 +3,7 @@ const { DetailMovie } = require("../models/DetailMovieModel.js");
 const Notification = require("../models/NotificationModel.js");
 const throwError = require("../utils/throwError.js");
 const cacheService = require("../services/cacheService.js");
+const { getIo } = require("../config/socket.js");
 
 exports.toggleBanUser = async (req, res, next) => {
   try {
@@ -111,7 +112,7 @@ exports.sendGlobalNotification = async (req, res, next) => {
     await notification.save();
 
     // Gửi thông báo real-time đến tất cả user qua Socket.IO
-    const io = req.app.get("socketio"); // Lấy instance của Socket.IO từ Express
+    const io = getIo(); // Lấy instance của Socket.IO từ Express
     io.emit("receiveNotification", { content });
 
     res.status(200).json({ message: "Notification sent successfully" });
