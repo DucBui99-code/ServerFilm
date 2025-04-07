@@ -1,4 +1,5 @@
 const { Movie } = require("../models/MovieModel");
+const RateModel = require("../models/RateModel");
 const { DetailMovie } = require("../models/DetailMovieModel");
 const UserDB = require("../models/UserModel");
 const {
@@ -135,8 +136,6 @@ exports.getMovieBySlug = async (req, res, next) => {
     const cachedMovie = await cacheService.getCache(cacheKey);
 
     if (cachedMovie) {
-      console.log("Cache hit for movie:", slug);
-
       return res.status(200).json({
         status: true,
         data: cachedMovie,
@@ -165,8 +164,6 @@ exports.getMovieBySlug = async (req, res, next) => {
 
     // Cache chỉ lưu khi không cần thuê phim
     if (!movie.isRent) {
-      console.log("Cache miss for movie:", slug);
-
       await cacheService.setCache(cacheKey, movie, 3600); // Lưu cache trong 1 giờ
     }
 
@@ -445,6 +442,123 @@ exports.getMovieByCategory = async (req, res, next) => {
     await cacheService.setCache(cacheKey, response, 3600);
 
     res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.rateMovie = async (req, res, next) => {
+  try {
+    const { movieId, star, content } = req.body;
+    const { userId, typeLogin } = req.user;
+
+    const movie = await DetailMovie.findById(movieId).lean();
+    if (!movie) throwError("Movie not found");
+
+    if (
+      typeof star !== "number" ||
+      star < 1 ||
+      star > 5 ||
+      !Number.isInteger(star)
+    ) {
+      throwError("Star must be an integer between 1 and 5");
+    }
+
+    const existingRate = await RateModel.findOne({
+      user: userId,
+      movie: movieId,
+    }).lean();
+
+    if (existingRate) {
+      return res.status(200).json({
+        status: true,
+        message: "Rate movie success",
+      });
+    } else {
+      const newRate = new RateModel({
+        user: userId,
+        movie: movieId,
+        star,
+        content,
+        typeComment: typeLogin,
+      });
+      await newRate.save();
+    }
+
+    // Cập nhật thông tin đánh giá trong DetailMovie
+    const totalCount = (movie.tmdb.total_count || 0) + 1;
+    const totalStar = movie.tmdb.vote_count + star;
+    const averageStar = totalStar / totalCount;
+
+    await DetailMovie.updateOne(
+      { _id: movieId },
+      {
+        $set: {
+          "tmdb.vote_average": averageStar,
+          "tmdb.vote_count": totalStar,
+          "tmdb.total_count": totalCount,
+        },
+      }
+    );
+
+    return res.status(200).json({
+      status: true,
+      message: "Rate movie success",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getRateMovie = async (req, res, next) => {
+  try {
+    const { movieId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalRates = await RateModel.countDocuments({
+      movie: movieId,
+    }).lean();
+
+    const rates = await RateModel.find({ movie: movieId })
+      .populate({
+        path: "user",
+        select: "username avatar inforAccountGoogle sex", // Chọn các trường bạn muốn lấy từ User
+      })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const formattedRates = rates.map((rate) => {
+      return {
+        ...rate,
+        user: {
+          username: rate.user.username,
+          avatar:
+            rate.typeComment === "byPass"
+              ? rate.user.avatar
+              : rate.user.inforAccountGoogle?.avatar,
+          sex: rate.user?.sex || "other",
+        },
+      };
+    });
+
+    const response = {
+      status: true,
+      data: {
+        items: formattedRates,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalRates / limit),
+          totalRates,
+          lastPage: page >= Math.ceil(totalRates / limit),
+        },
+      },
+      message: "Get rate movie success",
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     next(error);
   }

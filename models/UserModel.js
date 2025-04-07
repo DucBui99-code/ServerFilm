@@ -42,7 +42,7 @@ const UserSchema = new mongoose.Schema(
     },
     sex: {
       type: String,
-      enum: ["Male", "Female", "Ohter"],
+      enum: ["Male", "Female", "Other"],
     },
 
     phoneNumber: {

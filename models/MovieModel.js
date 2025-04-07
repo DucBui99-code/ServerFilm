@@ -7,8 +7,9 @@ const movieSchema = new mongoose.Schema({
       required: true,
     },
     season: { type: Number },
-    vote_average: { type: Number },
-    vote_count: { type: Number },
+    vote_average: { type: Number, default: 0 },
+    vote_count: { type: Number, default: 0 },
+    total_count: { type: Number, default: 0 },
   },
   imdb: {
     id: { type: String },

@@ -122,7 +122,11 @@ exports.sendGlobalNotification = async (req, res, next) => {
 
 exports.toggleLiveComment = async (req, res, next) => {
   try {
-    const { movieId } = req.body;
+    const { movieId, type } = req.body;
+
+    if (typeof type !== "boolean") {
+      throwError("Type must be a boolean", 400);
+    }
 
     if (!movieId) {
       throwError("Missing movieId", 400);
@@ -134,9 +138,18 @@ exports.toggleLiveComment = async (req, res, next) => {
       throwError("Movie not found", 404);
     }
 
-    movie.isLiveComment = !movie.isLiveComment;
+    movie.isLiveComment = type;
 
     await movie.save({ validateModifiedOnly: true });
+
+    // Update cache if it exists
+    const cacheKey = `movie:${movie.slug}`;
+    const cachedMovie = await cacheService.getCache(cacheKey);
+
+    if (cachedMovie) {
+      cachedMovie.isLiveComment = type;
+      await cacheService.setCache(cacheKey, cachedMovie);
+    }
 
     return res.status(200).json({
       status: true,

@@ -134,8 +134,8 @@ module.exports = (name, otp, timeExpired) => {
                                   <table width="100%" cellpadding="0" cellspacing="0" border="0">
                                     <tr>
                                       <td style="padding-right: 0px;padding-left: 0px;" align="center">
-                                        <a href="https://sateeq.com" target="_blank">
-                                          <img align="center" border="0" src="https://assets.unlayer.com/projects/47137/1675000768671-logo.ico" alt="Sateeq Logo" title="Sateeq Logo" style="outline: none;text-decoration: none;-ms-interpolation-mode: bicubic;clear: both;display: inline-block !important;border: none;height: auto;float: none;width: 19%;max-width: 106.4px;"
+                                        <a href="https://movie-night-vn.netlify.app" target="_blank">
+                                          <img align="center" border="0" src="https://res.cloudinary.com/dzvhggpfj/image/upload/v1743871817/avatars/p64r4yeyviyh79t60p5y.png" alt="Sateeq Logo" title="Sateeq Logo" style="outline: none;text-decoration: none;-ms-interpolation-mode: bicubic;clear: both;display: inline-block !important;border: none;height: auto;float: none;width: 19%;max-width: 106.4px;"
                                             width="106.4" />
                                         </a>
                                       </td>
@@ -220,7 +220,7 @@ module.exports = (name, otp, timeExpired) => {
                                 <td style="overflow-wrap:break-word;word-break:break-word;padding:48px;font-family:'Cabin',sans-serif;" align="left">
     
                                   <div style="color: #958d8d; line-height: 170%; text-align: center; word-wrap: break-word;">
-                                    <p style="font-size: 14px; line-height: 170%;">Love 💙 Team Tawk</p>
+                                    <p style="font-size: 14px; line-height: 170%;">Love 💙 Movie Night</p>
                                     <p style="font-size: 14px; line-height: 170%;">For any assistance and queries write to us at <a rel="noopener" href="mailto:support@codingmonk.in?" target="_blank">Support@codingmonk.in</a><br /><br /></p>
                                   </div>
     

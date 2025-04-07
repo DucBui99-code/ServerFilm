@@ -23,18 +23,17 @@ exports.getCommentsByMovie = async (req, res, next) => {
       .limit(limitNumber)
       .lean();
 
-    // 🔹 Lấy tổng số comment (không tính reply) TRƯỚC KHI kiểm tra comments.length
-    const totalItems = await Comment.countDocuments({ movieId });
-
     if (comments.length === 0) {
       return res.status(200).json({
         comments: [],
-        totalItems,
+        totalItems: 0,
         currentPage: pageNumber,
         totalPages: 0,
         isLastPage: true,
       });
     }
+    // 🔹 Lấy tổng số comment (không tính reply) TRƯỚC KHI kiểm tra comments.length
+    const totalItems = await Comment.countDocuments({ movieId });
 
     // 🔹 Lấy số lượng reply của mỗi comment
     const commentIds = comments.map((c) => c._id);
@@ -113,6 +112,8 @@ exports.getRepliesByComment = async (req, res, next) => {
         isLastPage: true,
       });
     }
+    // 🔹 Lấy tổng số comment (không tính reply) TRƯỚC KHI kiểm tra comments.length
+    const totalItems = await Comment.countDocuments({ commentId });
 
     // 🔹 Gom tất cả userId từ reply và replyTo
     const userIds = new Set();
@@ -144,15 +145,15 @@ exports.getRepliesByComment = async (req, res, next) => {
         : null,
     }));
 
-    // 🔹 Lấy tổng số reply
-    const totalItems = await Reply.countDocuments({ commentId });
+    const totalPages = Math.ceil(totalItems / limitNumber);
     const isLastPage = pageNumber >= totalPages;
 
     res.status(200).json({
       replies: formattedReplies,
-      totalItems,
+      totalPages,
       currentPage: pageNumber,
       isLastPage,
+      totalItems,
     });
   } catch (error) {
     next(error);

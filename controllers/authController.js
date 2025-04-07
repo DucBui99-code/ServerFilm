@@ -135,6 +135,10 @@ exports.verifyOTP = async (req, res, next) => {
     user.otp = undefined;
     user.verified = true;
     user.isCreatedByPass = true;
+    user.avatar = {
+      url: `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff`,
+      id: "",
+    };
 
     await user.save({
       new: true,

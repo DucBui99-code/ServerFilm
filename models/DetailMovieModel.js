@@ -11,6 +11,7 @@ const detailMovieSchema = new mongoose.Schema({
     season: { type: Number },
     vote_average: { type: Number, default: 0 },
     vote_count: { type: Number, default: 0 },
+    total_count: { type: Number, default: 0 },
   },
   year: { type: Number },
   category: [{ name: { type: String }, slug: { type: String } }],
