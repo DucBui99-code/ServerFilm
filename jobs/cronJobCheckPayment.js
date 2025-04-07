@@ -4,15 +4,11 @@ const { getAndRemoveExpiredBills } = require("../services/redisService");
 
 // Kiểm tra bill hết hạn và gửi thông báo
 const checkExpiredBills = async () => {
-  console.log("🔄 Kiểm tra bill hết hạn...");
-
   try {
     const io = getIo();
     const expiredBills = await getAndRemoveExpiredBills();
 
     for (const bill of expiredBills) {
-      console.log(`❌ Bill ${bill.id} đã hết hạn!`);
-
       // 🔥 Chỉ gửi thông báo cho đúng user có bill đó
       io.to(`user_${bill.userId.toString()}`).emit("billUpdated", {
         billId: bill.id,

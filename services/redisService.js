@@ -14,7 +14,6 @@ const pushToList = async (listKey, value, expire) => {
     if (expire) {
       redis.expire(`${listKey}`, expire);
     }
-    console.log(`📌 Đã thêm vào danh sách Redis: ${listKey}`);
   } catch (error) {
     console.error("❌ Lỗi khi thêm vào danh sách Redis:", error);
   }
@@ -40,9 +39,6 @@ const removeToList = async (listKey, id) => {
 
     if (itemToRemove) {
       await redis.lrem(listKey, 1, itemToRemove);
-      console.log(`🗑️ Đã xóa bill có id: ${id} khỏi ${listKey}`);
-    } else {
-      console.log("⚠️ Không tìm thấy bill để xóa");
     }
   } catch (error) {
     console.error("❌ Lỗi khi xóa bill khỏi Redis:", error);

@@ -12,8 +12,6 @@ exports.commentLiveSocket = () => {
     io.use(socketAuthMiddleware); // ✅ Áp dụng middleware xác thực JWT
 
     io.on("connection", (socket) => {
-      console.log(`🔌 User connected: ${socket.id}`);
-
       // Người dùng tham gia phòng xem phim
       socket.on("joinMovie", ({ movieId }) => {
         if (!viewers.has(movieId)) {
@@ -86,7 +84,6 @@ exports.commentLiveSocket = () => {
 
       // Xử lý khi người dùng ngắt kết nối
       socket.on("disconnect", () => {
-        console.log(`❌ User disconnected: ${socket.id}`);
         viewers.forEach((viewersSet, movieId) => {
           if (viewersSet.has(socket.id)) {
             viewersSet.delete(socket.id);

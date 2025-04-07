@@ -554,8 +554,6 @@ const sendNotification = async (
     io.to(`user_${receiverId.toString()}`).emit("receiveNotification", {
       status: true,
     });
-
-    console.log(`📩 Gửi thông báo đến user ${receiverId}`);
   } catch (error) {
     console.error("❌ Lỗi khi gửi thông báo:", error);
   }

@@ -70,7 +70,6 @@ exports.CreateBillServiceSeapay = async (
 exports.ResultBillFromSepayService = async (payload, next) => {
   try {
     // Xử lý thông tin giao dịch
-    console.log(payload);
 
     if (payload) {
       const transactionId = payload.description.match(/Order (\d+)/)[1];

@@ -15,19 +15,15 @@ const initSocket = (server) => {
     },
   });
 
-  console.log("✅ Socket.io đã được khởi động");
   io.use(authSocketMiddleware);
   io.on("connection", (socket) => {
     const { userId } = socket.user;
 
     if (userId) {
       socket.join(`user_${userId}`); // 🔥 Thêm user vào room riêng
-      console.log(`✅ User ${userId} joined room`);
     }
 
-    socket.on("disconnect", () => {
-      console.log(`❌ User ${userId} disconnected`);
-    });
+    socket.on("disconnect", () => {});
   });
   return io;
 };
