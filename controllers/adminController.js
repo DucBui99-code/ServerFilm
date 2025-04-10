@@ -1,5 +1,6 @@
 const User = require("../models/UserModel.js");
 const { DetailMovie } = require("../models/DetailMovieModel.js");
+const { Movie } = require("../models/MovieModel.js");
 const Notification = require("../models/NotificationModel.js");
 const throwError = require("../utils/throwError.js");
 const cacheService = require("../services/cacheService.js");
@@ -123,24 +124,27 @@ exports.sendGlobalNotification = async (req, res, next) => {
 
 exports.toggleLiveComment = async (req, res, next) => {
   try {
-    const { movieId, type } = req.body;
+    const { movieSlug, type } = req.body;
 
     if (typeof type !== "boolean") {
       throwError("Type must be a boolean", 400);
     }
 
-    if (!movieId) {
-      throwError("Missing movieId", 400);
+    if (!movieSlug) {
+      throwError("Missing movieSlug", 400);
     }
 
-    const movie = await DetailMovie.findById(movieId);
+    const movieDetail = await DetailMovie.findOne({ slug: movieSlug });
+    const movie = await Movie.findOne({ slug: movieSlug });
 
-    if (!movie) {
+    if (!movieDetail || !movie) {
       throwError("Movie not found", 404);
     }
 
+    movieDetail.isLiveComment = type;
     movie.isLiveComment = type;
 
+    await movieDetail.save({ validateModifiedOnly: true });
     await movie.save({ validateModifiedOnly: true });
 
     // Update cache if it exists
