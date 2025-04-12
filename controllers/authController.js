@@ -3,15 +3,16 @@ const otpGenerator = require("otp-generator");
 const uaParser = require("ua-parser-js");
 const moment = require("moment");
 const { v4 } = require("uuid");
+const crypto = require("crypto");
 
 const {
   LIMIT_DEVICE,
   EXPIRED_TIME_OTP,
   EXPIRED_TIME_TOKEN,
   NUMBER_OTP_GENERATE,
-  DEV_URL,
   TYPE_LOGIN,
   MAX_AGE_COOKIE,
+  TIME_CHANGE_PASSWORD,
 } = require("../config/CONSTANT.js");
 
 const filterObj = require("../utils/fillterObject");
@@ -115,7 +116,7 @@ exports.sendOTP = async (req, res, next) => {
       otp: new_otp.toString(),
     });
 
-    mailServices.sendEmail({
+    await mailServices.sendEmail({
       to: user.email,
       subject: "Verification OTP",
       html: otp(user.username, new_otp, EXPIRED_TIME_OTP),
@@ -416,37 +417,46 @@ exports.logout = async (req, res, next) => {
 
 // Forgot Password
 exports.forgotPassword = async (req, res, next) => {
-  const { email } = req.body;
-
-  const user = await User.findOne({ email: email });
-
-  if (!user || !user.isCreatedByPass) {
-    throwError("Not found user");
-  }
-
-  const resetToken = await user.createPasswordResetToken();
-
-  const urlReset = `${DEV_URL}/auth/newPassword/${resetToken}`;
   try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email: email });
+
+    if (!user || !user.isCreatedByPass) {
+      throwError("Not found user");
+    }
+
+    if (!user.verified) {
+      throwError("Account has not been verified");
+    }
+    if (user.isDisabled) {
+      throwError("Account has been disabled. Please contact admin");
+    }
+    if (user.passwordResetExpires && user.passwordResetExpires > Date.now()) {
+      throwError("Please try again after sometime");
+    }
+
+    const resetToken = await user.createPasswordResetToken();
+    await user.save({ validateModifiedOnly: true });
+
+    const urlReset = `${
+      isDevelopment
+        ? process.env.DEV_ALLOW_URL
+        : process.env.PRODUCTION_ALLOW_URL
+    }/auth/newPassword/${resetToken}`;
     // Send Email
-    mailServices.sendEmail({
+    await mailServices.sendEmail({
       to: user.email,
       subject: "Reset Password",
-      html: resetPassword(user.username, urlReset),
+      html: resetPassword(user.username, urlReset, TIME_CHANGE_PASSWORD),
       attachments: [],
     });
-    user.passwordResetToken = resetToken;
-    await user.save({ new: true, validateModifiedOnly: true });
 
     return res.status(200).json({
       status: true,
       message: "Send reset password successfully",
     });
   } catch (error) {
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-
-    await user.save({ validateBeforeSave: false });
     next(error);
   }
 };
@@ -464,7 +474,7 @@ exports.resetPassword = async (req, res, next) => {
     });
 
     if (!user) {
-      throwError("Token is Invalid or Expired");
+      throwError("Token is invalid or has expired");
     }
     user.password = password;
     user.passwordResetToken = undefined;
@@ -474,7 +484,7 @@ exports.resetPassword = async (req, res, next) => {
 
     return res.status(200).json({
       status: true,
-      message: "Password Rested Successfully",
+      message: "Send reset password successfully",
     });
   } catch (error) {
     next(error);

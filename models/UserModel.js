@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { TIME_CHANGE_PASSWORD } = require("../config/CONSTANT");
 
 const UserSchema = new mongoose.Schema(
   {
@@ -195,7 +196,14 @@ UserSchema.methods.correctOTP = async function (candidateOTP, userOTP) {
 
 UserSchema.methods.createPasswordResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString("hex");
-  return resetToken;
+  const hashToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+  this.passwordResetToken = hashToken;
+  this.passwordResetExpires = Date.now() + TIME_CHANGE_PASSWORD * 60 * 1000;
+  // You need to save the user object after modifying it
+  return hashToken;
 };
 
 const User = mongoose.model("Users", UserSchema);

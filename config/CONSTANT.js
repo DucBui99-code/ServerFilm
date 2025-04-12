@@ -3,7 +3,6 @@ const LIMIT_DEVICE = 3;
 const EXPIRED_TIME_TOKEN = "1d";
 const NUMBER_OTP_GENERATE = 6;
 const PATH_IMAGE = "https://img.ophim.live/uploads/movies/";
-const DEV_URL = "http://localhost:3000";
 const EXPIRED_TIME_ORDER = 5; // 5 minutes
 const TIME_CHECK_BILL = 10;
 const TYPE_LOGIN = {
@@ -30,13 +29,13 @@ const LINK_AVATAR_DEFAULT =
 const LIMIT_CHAT_LIVE = 3;
 const TIME_WINDOW = 20; // giây
 const MAX_AGE_COOKIE = 7 * 24 * 60 * 60 * 1000;
+const TIME_CHANGE_PASSWORD = 8;
 module.exports = {
   EXPIRED_TIME_OTP,
   LIMIT_DEVICE,
   EXPIRED_TIME_TOKEN,
   NUMBER_OTP_GENERATE,
   PATH_IMAGE,
-  DEV_URL,
   TYPE_LOGIN,
   EXPIRED_TIME_ORDER,
   URL_CREATE_BILL,
@@ -51,4 +50,5 @@ module.exports = {
   TIME_WINDOW,
   TIME_CHECK_BILL,
   MAX_AGE_COOKIE,
+  TIME_CHANGE_PASSWORD,
 };

@@ -71,47 +71,49 @@ exports.searchMovies = async (req, res, next) => {
     }
 
     const cacheKey = `search:${q}:${page}`;
-
-    // Kiểm tra cache trước khi truy vấn MongoDB
     const cachedData = await cacheService.getCache(cacheKey);
     if (cachedData) {
       return res.status(200).json(cachedData);
     }
 
-    const totalMovies = await Movie.countDocuments({
-      $or: [
-        { name: { $regex: q, $options: "i" } },
-        { origin_name: { $regex: q, $options: "i" } },
-      ],
-    }).lean();
+    // Tìm phim bằng Atlas Search
+    const result = await Movie.aggregate([
+      {
+        $search: {
+          index: "search_movie", // Đổi nếu bạn đặt tên index khác
+          text: {
+            query: q,
+            path: ["name", "origin_name"],
+          },
+        },
+      },
+      {
+        $facet: {
+          items: [{ $skip: skip }, { $limit: limit }],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ]);
 
-    const movies = await Movie.find({
-      $or: [
-        { name: { $regex: q, $options: "i" } },
-        { origin_name: { $regex: q, $options: "i" } },
-      ],
-    })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const items = result[0]?.items || [];
+    const totalCount = result[0]?.totalCount[0]?.count || 0;
 
     const response = {
       status: true,
       data: {
-        items: movies,
+        items,
         pathImage: PATH_IMAGE,
         pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(totalMovies / limit),
-          totalMovies,
-          lastPage: page >= Math.ceil(totalMovies / limit),
+          currentPage: Number(page),
+          totalPages: Math.ceil(totalCount / limit),
+          totalMovies: totalCount,
+          lastPage: Number(page) >= Math.ceil(totalCount / limit),
         },
       },
       message: "Search movie success",
     };
 
-    // Lưu kết quả vào Redis với thời gian hết hạn là 10 phút (600 giây)
-    await cacheService.setCache(cacheKey, response, 600);
+    await cacheService.setCache(cacheKey, response, 600); // 10 phút cache
 
     return res.status(200).json(response);
   } catch (error) {
@@ -285,15 +287,17 @@ exports.getRandomLiveMovie = async (req, res, next) => {
 
 exports.getMovieByCountry = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // Validate and parse input parameters
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100); // Set max limit to 100
     const skip = (page - 1) * limit;
-    const country = req.query.country;
+    const country = req.query.country?.trim(); // Trim whitespace
 
     if (!country) {
-      throwError("Country query parameter is required");
+      throwError("Country query parameter is required", 400); // Added status code
     }
 
+    // Cache handling
     const cacheKey = `movies:country:${country}:page:${page}:limit:${limit}`;
     const cachedData = await cacheService.getCache(cacheKey);
 
@@ -301,32 +305,24 @@ exports.getMovieByCountry = async (req, res, next) => {
       return res.json(cachedData);
     }
 
+    // Use regular index and find method for better performance
     const totalMovies = await DetailMovie.countDocuments({
       "country.slug": country,
-    }).lean();
+    });
 
-    const movies = await DetailMovie.aggregate([
-      {
-        $match: {
-          "country.slug": country,
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          origin_name: 1,
-          name: 1,
-          thumb_url: 1,
-          poster_url: 1,
-          year: 1,
-          slug: 1,
-          tmdb: 1,
-          __t: 1,
-        },
-      },
-      { $skip: skip },
-      { $limit: limit },
-    ]);
+    // Validate pagination
+    const totalPages = Math.ceil(totalMovies / limit);
+    if (page > totalPages && totalPages > 0) {
+      throwError("Page number exceeds total pages", 404);
+    }
+
+    // Find movies with pagination
+    const movies = await DetailMovie.find({ "country.slug": country })
+      .select("_id origin_name name thumb_url poster_url year slug tmdb __t") // Select specific fields
+      .skip(skip)
+      .limit(limit);
+
+    // Prepare response
     const response = {
       status: true,
       data: {
@@ -334,17 +330,19 @@ exports.getMovieByCountry = async (req, res, next) => {
         pathImage: PATH_IMAGE,
         pagination: {
           currentPage: page,
-          totalPages: Math.ceil(totalMovies / limit),
+          totalPages,
           totalMovies,
-          lastPage: page >= Math.ceil(totalMovies / limit),
+          lastPage: page >= totalPages,
+          hasNextPage: page < totalPages,
         },
       },
-      message: "Search movie success",
+      message: "Search movie by country success", // More specific message
     };
 
+    // Set cache with error handling
     await cacheService.setCache(cacheKey, response, 3600);
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     next(error);
   }
@@ -352,48 +350,44 @@ exports.getMovieByCountry = async (req, res, next) => {
 
 exports.getMovieByType = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // Validate and parse input parameters
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100); // Set max limit to 100
     const skip = (page - 1) * limit;
-    const type = req.query.type;
+    const type = req.query.type?.trim(); // Trim whitespace and make case-insensitive if needed
 
     if (!type) {
-      throwError("type query parameter is required");
+      throwError("Type query parameter is required", 400); // Added status code
     }
 
-    const cacheKey = `movies:type:${type}:page:${page}:limit:${limit}`;
+    // Cache handling
+    const cacheKey = `movies:type:${type.toLowerCase()}:page:${page}:limit:${limit}`;
     const cachedData = await cacheService.getCache(cacheKey);
 
     if (cachedData) {
       return res.json(cachedData);
     }
 
+    // Use regular index and find method for better performance
     const totalMovies = await DetailMovie.countDocuments({
-      type: type,
-    }).lean();
+      type: { $regex: new RegExp(`^${type}$`, "i") }, // Case-insensitive match
+    });
 
-    const movies = await DetailMovie.aggregate([
-      {
-        $match: {
-          type: type,
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          origin_name: 1,
-          name: 1,
-          thumb_url: 1,
-          poster_url: 1,
-          year: 1,
-          slug: 1,
-          tmdb: 1,
-          __t: 1,
-        },
-      },
-      { $skip: skip },
-      { $limit: limit },
-    ]);
+    // Validate pagination
+    const totalPages = Math.ceil(totalMovies / limit);
+    if (page > totalPages && totalPages > 0) {
+      throwError("Page number exceeds total pages", 404);
+    }
+
+    // Find movies with pagination
+    const movies = await DetailMovie.find({
+      type: { $regex: new RegExp(`^${type}$`, "i") }, // Case-insensitive match
+    })
+      .select("_id origin_name name thumb_url poster_url year slug tmdb __t") // Select specific fields
+      .skip(skip)
+      .limit(limit);
+
+    // Prepare response
     const response = {
       status: true,
       data: {
@@ -401,17 +395,19 @@ exports.getMovieByType = async (req, res, next) => {
         pathImage: PATH_IMAGE,
         pagination: {
           currentPage: page,
-          totalPages: Math.ceil(totalMovies / limit),
+          totalPages,
           totalMovies,
-          lastPage: page >= Math.ceil(totalMovies / limit),
+          lastPage: page >= totalPages,
+          hasNextPage: page < totalPages, // Added for better client handling
         },
       },
-      message: "Search movie success",
+      message: `Movies of type '${type}' retrieved successfully`, // More specific message
     };
 
+    // Set cache with error handling
     await cacheService.setCache(cacheKey, response, 3600);
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     next(error);
   }
@@ -420,12 +416,12 @@ exports.getMovieByType = async (req, res, next) => {
 exports.getMovieByCategory = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100); // Giới hạn max limit
     const skip = (page - 1) * limit;
-    const category = req.query.category;
+    const category = req.query.category?.trim(); // Thêm trim() để loại bỏ khoảng trắng thừa
 
     if (!category) {
-      throwError("category query parameter is required");
+      throwError("Category query parameter is required", 400); // Thêm status code
     }
 
     const cacheKey = `movies:category:${category}:page:${page}:limit:${limit}`;
@@ -435,32 +431,21 @@ exports.getMovieByCategory = async (req, res, next) => {
       return res.json(cachedData);
     }
 
-    const totalMovies = await DetailMovie.countDocuments({
-      "category.slug": category,
-    }).lean();
-
-    const movies = await DetailMovie.aggregate([
-      {
-        $match: {
-          "category.slug": category,
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          origin_name: 1,
-          name: 1,
-          thumb_url: 1,
-          poster_url: 1,
-          year: 1,
-          slug: 1,
-          tmdb: 1,
-          __t: 1,
-        },
-      },
-      { $skip: skip },
-      { $limit: limit },
+    // Tối ưu: Đếm và query song song với find() thay vì aggregate
+    const [totalMovies, movies] = await Promise.all([
+      DetailMovie.countDocuments({ "category.slug": category }),
+      DetailMovie.find({ "category.slug": category })
+        .select("_id origin_name name thumb_url poster_url year slug tmdb __t") // Lọc trường cần thiết
+        .skip(skip)
+        .limit(limit),
     ]);
+
+    // Kiểm tra page hợp lệ
+    const totalPages = Math.ceil(totalMovies / limit);
+    if (page > totalPages && totalPages > 0) {
+      throwError("Page number exceeds total pages", 404);
+    }
+
     const response = {
       status: true,
       data: {
@@ -468,14 +453,15 @@ exports.getMovieByCategory = async (req, res, next) => {
         pathImage: PATH_IMAGE,
         pagination: {
           currentPage: page,
-          totalPages: Math.ceil(totalMovies / limit),
+          totalPages,
           totalMovies,
-          lastPage: page >= Math.ceil(totalMovies / limit),
+          lastPage: page >= totalPages,
         },
       },
       message: "Search movie success",
     };
 
+    // Cập nhật cache
     await cacheService.setCache(cacheKey, response, 3600);
 
     res.json(response);

@@ -54,7 +54,18 @@ const detailMovieSchema = new mongoose.Schema({
   },
 });
 
+detailMovieSchema.index({ type: 1 });
+detailMovieSchema.index({ "country.slug": 1 });
+detailMovieSchema.index({ "category.slug": 1 });
+
 const DetailMovie = mongoose.model("DetailMovie", detailMovieSchema);
+
+// Sau khi tạo model
+// DetailMovie.syncIndexes()
+//   .then(() => console.log("Indexes synced"))
+//   .catch((err) => console.error("Index sync error:", err));
+
+// DetailMovie.collection.indexes().then((indexes) => console.log(indexes));
 
 const DetailMovieRent = DetailMovie.discriminator(
   "DetailMovieRent",
