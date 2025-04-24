@@ -95,6 +95,10 @@ exports.sendOTP = async (req, res, next) => {
       throwError("User does not exist");
     }
 
+    if (user.isCreatedByPass) {
+      throwError("This account has been verify");
+    }
+
     if (new Date(user.otpExpires).getTime() > Date.now()) {
       return res.status(400).json({
         status: false,
@@ -147,6 +151,10 @@ exports.verifyOTP = async (req, res, next) => {
 
     if (!user) {
       throwError("Email is invalid");
+    }
+
+    if (user.isCreatedByPass) {
+      throwError("This account has been verify");
     }
 
     if (new Date(user.otpExpires).getTime() < Date.now()) {
