@@ -111,9 +111,12 @@ exports.sendOTP = async (req, res, next) => {
 
     const otpExpires = Date.now() + EXPIRED_TIME_OTP * 60 * 1000;
 
-    await User.findByIdAndUpdate(userId, {
-      otpExpires,
-      otp: new_otp.toString(),
+    user.otpExpires = otpExpires;
+    user.otp = new_otp;
+
+    await user.save({
+      validateModifiedOnly: true,
+      new: true,
     });
 
     await mailServices.sendEmail({
@@ -149,6 +152,7 @@ exports.verifyOTP = async (req, res, next) => {
     if (new Date(user.otpExpires).getTime() < Date.now()) {
       throwError("OTP is expired");
     }
+
     if (!(await user.correctOTP(otp, user.otp))) {
       throwError("OTP is incorrect");
     }

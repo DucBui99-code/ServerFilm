@@ -149,39 +149,27 @@ const UserSchema = new mongoose.Schema(
 );
 
 UserSchema.pre("save", async function (next) {
-  // Only run this function if password was actually modified
-  if (!this.isModified("otp") || !this.otp) return next();
+  // Xử lý OTP
+  if (this.isModified("otp") && this.otp) {
+    this.otp = await bcrypt.hash(this.otp, 12);
+  }
 
-  // Hash the otp with cost of 12
-  this.otp = await bcrypt.hash(this.otp.toString(), 12);
+  // Xử lý password
+  if (this.isModified("password") && this.password) {
+    this.password = await bcrypt.hash(this.password, 12);
+  }
 
-  next();
-});
-
-UserSchema.pre("save", async function (next) {
-  // Chỉ hash nếu mật khẩu bị thay đổi
-  if (!this.isModified("password") || !this.password) return next();
-
-  this.password = await bcrypt.hash(this.password, 12);
-
-  next();
-});
-
-UserSchema.pre("save", async function (next) {
-  // Only run this function if password was actually modified
-  if (!this.isModified("passwordResetToken") || !this.passwordResetToken)
-    return next();
-
-  // Hash the password with cost of 12
-  this.passwordResetToken = crypto
-    .createHash("sha256")
-    .update(this.passwordResetToken)
-    .digest("hex");
-  this.passwordResetExpires = Date.now() + 5 * 60 * 1000;
+  // Xử lý passwordResetToken
+  if (this.isModified("passwordResetToken") && this.passwordResetToken) {
+    this.passwordResetToken = crypto
+      .createHash("sha256")
+      .update(this.passwordResetToken)
+      .digest("hex");
+    this.passwordResetExpires = Date.now() + 5 * 60 * 1000;
+  }
 
   next();
 });
-
 UserSchema.methods.isCorrectPassword = async function (
   candidatePassword,
   userPassword
@@ -191,6 +179,8 @@ UserSchema.methods.isCorrectPassword = async function (
 };
 
 UserSchema.methods.correctOTP = async function (candidateOTP, userOTP) {
+  if (!candidateOTP || !userOTP) return false;
+
   return await bcrypt.compare(candidateOTP, userOTP);
 };
 
